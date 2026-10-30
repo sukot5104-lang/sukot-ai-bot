@@ -1,6 +1,6 @@
-/* Sukot AI Bot — offline shell cache */
-const CACHE = 'sukot-ai-v1';
-const ASSETS = ['./', './index.html', './app.js', './styles.css', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
+/* سوکات AI — offline shell cache v1.1.0 */
+const CACHE = 'sukot-ai-v1.1.0';
+const ASSETS = ['./', './index.html', './app.js', './styles.css', './manifest.webmanifest', './img/hero.jpg', './icons/icon-192.png', './icons/icon-512.png', './fonts/Vazirmatn-Regular.woff2', './fonts/Vazirmatn-Bold.woff2'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
