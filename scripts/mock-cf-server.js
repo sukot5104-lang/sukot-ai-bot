@@ -11,7 +11,7 @@ const path = require('path');
 
 const port = Number(process.argv[2] || 8787);
 const WEB = path.join(__dirname, '..', 'web');
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
 
 http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -33,10 +33,11 @@ http.createServer((req, res) => {
       } catch (e) {}
       res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
       const text =
-        'سلام! 👋 من ربات آزمایشی هستم و این پیام از **سرور ماک** آمده است.\n\n' +
+        'سلام! من **سوکات** هستم و این پیام از **سرور ماک** آمده است.\n\n' +
         'پیام تو این بود:\n\n> ' + userMsg + '\n\n' +
-        '- ترارسانی (streaming) به درستی کار می‌کند ✅\n' +
-        '- رابط کاربری فارسی و راست‌به‌چپ سالم است ✅\n\n' +
+        '- ترارسانی (streaming) به درستی کار می‌کند\n' +
+        '- رابط کاربری فارسی و راست‌به‌چپ سالم است\n' +
+        '- سازندهٔ من Sukot است\n\n' +
         'برای اتصال واقعی، در تنظیمات **توکن** و **Account ID** کلادفلر را وارد کن:\n\n' +
         '```\nhttps://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/ai/v1/chat/completions\n```';
       const chunks = text.match(/[\s\S]{1,16}/g) || [];

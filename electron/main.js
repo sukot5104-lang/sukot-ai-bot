@@ -24,9 +24,9 @@ function createWindow() {
     minWidth: 460,
     minHeight: 500,
     show: false,
-    backgroundColor: '#0b0f1a',
+    backgroundColor: '#12091f',
     autoHideMenuBar: true,
-    title: 'Sukot AI Bot — ربات هوش مصنوعی',
+    title: 'سوکات AI — دستیار هوشمند فارسی',
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
