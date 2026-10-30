@@ -1,9 +1,11 @@
 /* ============================================================
-   سوکات AI (Sukot AI) v1.3.0 — Persian AI chatbot
+   سوکات AI (Sukot AI) v1.3.1 — Persian AI chatbot
    powered by Cloudflare Workers AI · Z.ai GLM · OpenRouter
 
-   v1.3.0 highlights
-   - مغزهای غول‌پیکر: Z.ai GLM-4.6 (۳۵۵B) + OpenRouter (DeepSeek ۶۷۱B، Kimi K2 ۱T)
+   v1.3.1 highlights
+   - رفع کامل ارورها: حذف ۶ مدل مردهٔ کلادفلر + افزودن ۸ مدل سالم تأییدشده (GLM 4.7، Gemma 4، Nemotron 120B و…)
+   - فالبک خودکار: اگر مدلی در دسترس نباشد، سوکات خودش با مدل پایدار جواب می‌دهد و چراغ سبز می‌شود
+   - مدل غول‌پیکر رایگان ۵۵۰B روی OpenRouter (Nemotron 3 Ultra)
    - حالت عامل (انجام کار): ابزار جستجو، ماشین‌حساب، زمان، خواندن صفحه
    - رفع کپی نصفه‌کارهٔ کدهای بلند: کپی از متن خام + ادامهٔ خودکار پاسخ بریده
    - قیمت لحظه‌ای دقیق دلار/یورو/بیت‌کوین از API مستقیم ارز و کریپتو
@@ -12,7 +14,7 @@
 'use strict';
 
 /* ---------- constants ---------- */
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 const CREATOR = 'Sukot';
 const DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const LEGACY_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
@@ -136,23 +138,42 @@ const STYLES = {
 
 const MODEL_NAMES = {
   '@cf/meta/llama-3.3-70b-instruct-fp8-fast': 'Llama 3.3 70B Fast',
-  '@cf/meta/llama-3.3-70b-instruct': 'Llama 3.3 70B',
   '@cf/openai/gpt-oss-120b': 'GPT-OSS 120B',
   '@cf/openai/gpt-oss-20b': 'GPT-OSS 20B',
   '@cf/meta/llama-4-scout-17b-16e-instruct': 'Llama 4 Scout',
-  '@cf/qwen/qwen3-30b-a3b': 'Qwen 3 30B',
+  '@cf/nvidia/nemotron-3-120b-a12b': 'Nemotron 3 Super 120B',
+  '@cf/qwen/qwen3-30b-a3b-fp8': 'Qwen 3 30B',
+  '@cf/qwen/qwen3.8-27b': 'Qwen 3.8 27B (تصویر)',
   '@cf/qwen/qwen2.5-coder-32b-instruct': 'Qwen2.5 Coder 32B',
   '@cf/qwen/qwq-32b': 'QwQ 32B',
   '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b': 'DeepSeek R1 32B',
   '@cf/mistralai/mistral-small-3.1-24b-instruct': 'Mistral Small 24B',
+  '@cf/zai-org/glm-4.7-flash': 'GLM 4.7 Flash — Z.ai',
+  '@cf/google/gemma-4-26b-a4b-it': 'Gemma 4 26B',
   '@cf/meta/llama-3.1-8b-instruct-fast': 'Llama 3.1 8B Fast',
-  '@cf/meta/llama-3.1-8b-instruct': 'Llama 3.1 8B',
+  '@cf/meta/llama-3.1-8b-instruct-fp8': 'Llama 3.1 8B',
   '@cf/meta/llama-3.2-3b-instruct': 'Llama 3.2 3B',
-  '@cf/meta/llama-3.2-11b-vision-instruct': 'Llama 3.2 Vision',
-  '@cf/qwen/qwen1.5-14b-chat-awq': 'Qwen 1.5 14B',
   '@cf/mistral/mistral-7b-instruct-v0.1': 'Mistral 7B',
-  '@cf/google/gemma-3-12b-it': 'Gemma 3 12B'
+  '@cf/ibm-granite/granite-4.0-h-micro': 'Granite 4.0 Micro — IBM'
 };
+
+/* مدل‌های مردهٔ قدیمی → جایگزین سالم (مهاجرت خودکار تنظیمات ذخیره‌شده) */
+const DEAD_MODELS = {
+  '@cf/meta/llama-3.1-8b-instruct': '@cf/meta/llama-3.1-8b-instruct-fp8',
+  '@cf/qwen/qwen1.5-14b-chat-awq': '@cf/qwen/qwen2.5-coder-32b-instruct',
+  '@cf/meta/llama-3.3-70b-instruct': '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+  '@cf/qwen/qwen3-30b-a3b': '@cf/qwen/qwen3-30b-a3b-fp8',
+  '@cf/google/gemma-3-12b-it': '@cf/google/gemma-4-26b-a4b-it',
+  '@cf/meta/llama-3.2-11b-vision-instruct': '@cf/qwen/qwen3.8-27b'
+};
+/* الگوهای خطای سطح مدل — یعنی خود مدل در دسترس نیست و باید فالبک کرد */
+const MODEL_ERR_RE = /deprecated|No such model|not allowed to access|not available on the Workers Free plan|Model Agreement/i;
+/* مدل پایدار جایگزین برای فالبک خودکار */
+function fallbackModel(dead) {
+  if (DEAD_MODELS[dead]) return DEAD_MODELS[dead];
+  if (dead !== DEFAULT_MODEL) return DEFAULT_MODEL;
+  return '@cf/openai/gpt-oss-120b';
+}
 
 /* ---------- پروایدرها: کلادفلر / Z.ai GLM / OpenRouter / دلخواه ---------- */
 const PROVIDERS = {
@@ -181,11 +202,11 @@ const PROVIDERS = {
     needsAccount: false,
     endpoint: () => 'https://openrouter.ai/api/v1/chat/completions',
     models: {
-      'deepseek/deepseek-chat-v3-0324:free': 'DeepSeek V3 — ۶۷۱B (رایگان)',
-      'deepseek/deepseek-r1-0528:free': 'DeepSeek R1 — استدلالی ۶۷۱B (رایگان)',
-      'meta-llama/llama-4-maverick:free': 'Llama 4 Maverick — ۴۰۰B',
-      'moonshotai/kimi-k2:free': 'Kimi K2 — ۱ تریلیون پارامتر',
-      'qwen/qwen3-235b-a22b:free': 'Qwen 3 — ۲۳۵B'
+      'nvidia/nemotron-3-ultra-550b-a55b:free': 'Nemotron 3 Ultra — ۵۵۰B (رایگان، ۱M کانتکست)',
+      'thinkingmachines/inkling:free': 'Inkling — ۱M کانتکست (رایگان)',
+      'nvidia/nemotron-3.5-lightning:free': 'Nemotron 3.5 Lightning — ۱M کانتکست (رایگان)',
+      'google/gemma-4-31b-it:free': 'Gemma 4 31B (رایگان)',
+      'dots-studio/dots-3-note-preview:free': 'Dots 3 Note — ۵۱۲K کانتکست (رایگان)'
     }
   },
   custom: {
@@ -210,6 +231,8 @@ function loadSettings() {
     agentTools: true, voice: '', ttsFallback: true
   }, s);
   if (out.model === LEGACY_MODEL && !out.modelPicked) { out.model = DEFAULT_MODEL; }
+  /* مهاجرت خودکار مدل‌های مردهٔ ذخیره‌شده به جایگزین سالم */
+  if (out.model && DEAD_MODELS[out.model]) { out.model = DEAD_MODELS[out.model]; }
   if (!STYLES[out.style]) out.style = 'detailed';
   if (!CATEGORIES[out.cat]) out.cat = 'general';
   if (!['auto', 'always', 'off'].includes(out.webSearch)) out.webSearch = 'auto';
@@ -443,9 +466,23 @@ if (ENV === 'electron') {
   attach();
 }
 
-/* SSE line parser shared by every transport */
+/* SSE line parser shared by every transport.
+   اگر سرور با وضعیت ۲۰۰ ولی بدنهٔ خطا جواب بدهد، خطا گم نشود: */
 function createSSEParser(onDelta) {
-  let buf = '';
+  let buf = '', lastErr = null, sawContent = false, reasoningMode = false;
+  const extract = (j) => {
+    if (j && (j.error || j.errors)) { lastErr = JSON.stringify(j.error || j.errors); return; }
+    const d = j.choices && j.choices[0] && (j.choices[0].delta || j.choices[0].message || {});
+    const t = ((d && d.content) || '').toString();
+    const r = ((d && (d.reasoning || d.reasoning_content)) || '').toString();
+    if (r && !t && !sawContent) {
+      /* مدل‌های استدلالی (gpt-oss): تفکر در فیلد جدا می‌آید → نشانگر «دارم فکر می‌کنم» */
+      if (!reasoningMode) { reasoningMode = true; onDelta('<think>'); }
+    } else if (t) {
+      if (reasoningMode) { reasoningMode = false; onDelta('</think>'); }
+      sawContent = true; onDelta(t);
+    }
+  };
   return {
     push(chunk) {
       buf += chunk;
@@ -456,24 +493,15 @@ function createSSEParser(onDelta) {
         if (!line.startsWith('data:')) continue;
         const data = line.slice(5).trim();
         if (!data || data === '[DONE]') continue;
-        try {
-          const j = JSON.parse(data);
-          const d = j.choices && j.choices[0] && (j.choices[0].delta || j.choices[0].message || {});
-          const t = (d.content || '').toString();
-          if (t) onDelta(t);
-        } catch (e) { /* partial json — ignore */ }
+        try { extract(JSON.parse(data)); } catch (e) { /* partial json — ignore */ }
       }
     },
     end() {
       if (buf.trim().startsWith('data:')) {
-        try {
-          const j = JSON.parse(buf.trim().slice(5).trim());
-          const d = j.choices && j.choices[0] && (j.choices[0].delta || j.choices[0].message || {});
-          const t = (d.content || '').toString();
-          if (t) onDelta(t);
-        } catch (e) {}
+        try { extract(JSON.parse(buf.trim().slice(5).trim())); } catch (e) {}
       }
-    }
+    },
+    getError() { return sawContent ? null : lastErr; }
   };
 }
 
@@ -484,6 +512,17 @@ function friendlyError(status, bodyText) {
     if (j.errors && j.errors[0]) { code = j.errors[0].code; msg = j.errors[0].message || ''; }
     if (j.error && j.error.message) { msg = j.error.message; code = j.error.code || ''; }
   } catch (e) { msg = (bodyText || '').slice(0, 200); }
+
+  /* خطاهای سطح مدل → تگ فالبک: سوکات خودکار با مدل پایدار ادامه می‌دهد */
+  if (MODEL_ERR_RE.test(msg) || code === 5035) {
+    if (/not available on the Workers Free plan/i.test(msg)) {
+      return '[model-unavailable] این مدل فقط روی پلن پولی کلادفلر فعال است — سوکات خودکار با مدل پایدار ادامه می‌دهد (یا در تنظیمات مدل رایگان دیگری انتخاب کن).';
+    }
+    if (/deprecated|No such model/i.test(msg)) {
+      return '[model-unavailable] این مدل بازنشسته یا حذف شده است — سوکات خودکار با مدل پایدار جایگزین ادامه می‌دهد.';
+    }
+    return '[model-unavailable] این مدل روی این حساب در دسترس نیست (نیاز به تأیید لایسنس در پنل کلادفلر دارد) — سوکات خودکار با مدل پایدار ادامه می‌دهد.';
+  }
 
   if (code === 9109 || /location/i.test(msg)) {
     return 'توکن شما محدودیت IP دارد (خطای 9109). در پنل کلادفلر توکن را ویرایش کنید و بخش «IP Address Filtering» را حذف کنید.';
@@ -513,7 +552,14 @@ function streamRequest(url, headers, body, onDelta, onDone) {
   const cbId = uid();
   const parser = createSSEParser(onDelta);
   const handleChunk = (raw) => { try { parser.push(raw); } catch (e) {} };
-  const handleDone = (err) => { try { parser.end(); } catch (e) {} onDone(err); };
+  const handleDone = (err) => {
+    try { parser.end(); } catch (e) {}
+    if (!err) {
+      const perr = parser.getError();
+      if (perr) err = friendlyError(0, perr);
+    }
+    onDone(err);
+  };
 
   if (ENV === 'android') {
     if (typeof AndroidAI === 'undefined' || !AndroidAI.request) {
@@ -753,16 +799,25 @@ function shouldSearch(text) {
 /* ---------- one-shot request used by "test connection" ---------- */
 function testConnection(cb) {
   const url = apiUrl();
-  const body = {
-    model: chosenModel(), stream: true, max_tokens: 60,
-    messages: [{ role: 'user', content: 'سلام! فقط بگو: اتصال برقرار است' }]
+  const tryModel = (model, retried, note) => {
+    const body = {
+      model: model, stream: true, max_tokens: 60,
+      messages: [{ role: 'user', content: 'سلام! فقط بگو: اتصال برقرار است' }]
+    };
+    let acc = '';
+    streamRequest(url, apiHeaders(), body, (t) => { acc += t; }, (err) => {
+      /* مدل در دسترس نبود؟ یک بار با مدل پایدار جایگزین تست کن */
+      if (err && err.indexOf('[model-unavailable]') !== -1 && !retried) {
+        const alt = fallbackModel(model);
+        tryModel(alt, true, 'مدل «' + prettyModel(model) + '» روی این حساب فعال نیست — تست با «' + prettyModel(alt) + '»: ');
+        return;
+      }
+      if (err) cb(false, err);
+      else if (!acc.trim()) cb(false, 'اتصال برقرار شد ولی پاسخی دریافت نشد. (Account ID یا مدل را بررسی کنید)');
+      else cb(true, (note || '') + 'اتصال موفق ✓ — پاسخ مدل: ' + stripThink(acc).text.trim().slice(0, 120));
+    });
   };
-  let acc = '';
-  streamRequest(url, apiHeaders(), body, (t) => { acc += t; }, (err) => {
-    if (err) cb(false, err);
-    else if (!acc.trim()) cb(false, 'اتصال برقرار شد ولی پاسخی دریافت نشد. (Account ID یا مدل را بررسی کنید)');
-    else cb(true, 'اتصال موفق — پاسخ مدل: ' + stripThink(acc).text.trim().slice(0, 120));
-  });
+  tryModel(chosenModel(), false, '');
 }
 
 /* ---------- API URL / config (multi-provider) ---------- */
@@ -1121,6 +1176,15 @@ function addMsgDom(role, html, id) {
 }
 
 function errorHTML(msg) {
+  /* در نسخهٔ وب اگر اتصال ممکن نشد (CORS مرورگر)، کارت راهنمای کامل نشان بده */
+  if (ENV === 'web' && /خطای شبکه|CORS/.test(String(msg))) {
+    return '<div class="net-help">' +
+      '<p style="color:var(--err);display:flex;align-items:center;gap:8px;margin:0 0 8px">' +
+      '<svg class="ic ic-sm" style="color:var(--err)"><use href="#i-alert"/></svg><span>' + esc(msg) + '</span></p>' +
+      '<p style="margin:4px 0;font-weight:bold">نسخهٔ وب به‌دلیل سیاست امنیتی مرورگرها (CORS) نمی‌تواند مستقیماً به کلادفلر وصل شود. دو راه‌حل:</p>' +
+      '<ol style="margin:4px 0;padding-right:18px"><li>اپ <b>اندروید</b> یا <b>ویندوز</b> سوکات را نصب کن — بدون هیچ محدودیتی مستقیم وصل می‌شود (لینک دانلود: بخش «درباره» یا کانال تلگرام).</li>' +
+      '<li>یا Worker واسط را روی حسابت مستقر کن و آدرسش را در تنظیمات، فیلد «آدرس API» بگذار (فایل <span class="en" dir="ltr">worker/worker.js</span> در مخزن GitHub + راهنمای ۴ مرحله‌ای در README).</li></ol></div>';
+  }
   return '<p style="color:var(--err);display:flex;align-items:center;gap:8px">' +
     '<svg class="ic ic-sm" style="color:var(--err)"><use href="#i-alert"/></svg><span>' + esc(msg) + '</span></p>';
 }
@@ -1271,9 +1335,10 @@ async function send(textRaw) {
     scrollBottom(false);
   };
 
-  /* — حلقهٔ عامل: حداکثر ۴ دور (ابزار / ادامهٔ پاسخ بریده) — */
+  /* — حلقهٔ عامل: حداکثر ۴ دور (ابزار / ادامهٔ پاسخ بریده / فالبک مدل) — */
   let full = '';
   let finalErr = null;
+  let fellBack = false;
   for (let round = 0; round < 4; round++) {
     let acc = '';
     finalErr = await new Promise((resolve) => {
@@ -1292,6 +1357,17 @@ async function send(textRaw) {
     /* اگر سقف طول پاسخ مدل را رد کرد، نصف کن و همان دور را دوباره بگیر */
     if (finalErr && /طول پاسخ|max_tokens/i.test(finalErr) && maxTokens > 900) {
       maxTokens = Math.max(900, Math.floor(maxTokens / 2));
+      round--; continue;
+    }
+
+    /* مدل در دسترس نبود (بازنشسته/لایسنس/پلن)؟ یک بار خودکار با مدل پایدار ادامه بده */
+    if (finalErr && finalErr.indexOf('[model-unavailable]') !== -1 && !fellBack) {
+      fellBack = true;
+      const dead = chosenModel();
+      settings.model = fallbackModel(dead);
+      saveSettings(settings); refreshStatus();
+      w.querySelector('.bubble').innerHTML = toolNoteHTML('مدل «' + prettyModel(dead) + '» روی این حساب در دسترس نبود — خودکار با «' + prettyModel(settings.model) + '» ادامه می‌دهم…');
+      scrollBottom(false);
       round--; continue;
     }
 
@@ -1412,11 +1488,11 @@ function rebuildModelSelect() {
   let opts = '';
   if (modalProvider === 'cloudflare') {
     const groups = {
-      'عمومی — مغز بزرگ': ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.3-70b-instruct', '@cf/openai/gpt-oss-120b', '@cf/openai/gpt-oss-20b', '@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/mistralai/mistral-small-3.1-24b-instruct', '@cf/google/gemma-3-12b-it'],
-      'برنامه‌نویسی': ['@cf/qwen/qwen2.5-coder-32b-instruct', '@cf/qwen/qwen3-30b-a3b', '@cf/qwen/qwen1.5-14b-chat-awq'],
+      'عمومی — مغز بزرگ': ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/openai/gpt-oss-120b', '@cf/nvidia/nemotron-3-120b-a12b', '@cf/openai/gpt-oss-20b', '@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/mistralai/mistral-small-3.1-24b-instruct', '@cf/zai-org/glm-4.7-flash', '@cf/google/gemma-4-26b-a4b-it'],
+      'برنامه‌نویسی': ['@cf/qwen/qwen2.5-coder-32b-instruct', '@cf/qwen/qwen3-30b-a3b-fp8', '@cf/ibm-granite/granite-4.0-h-micro'],
       'استدلال عمیق (کندتر، با تفکر)': ['@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', '@cf/qwen/qwq-32b'],
-      'سریع — گفتگو، صوتی و پلن رایگان': ['@cf/meta/llama-3.1-8b-instruct-fast', '@cf/meta/llama-3.1-8b-instruct', '@cf/meta/llama-3.2-3b-instruct', '@cf/mistral/mistral-7b-instruct-v0.1'],
-      'چندوجهی (تصویر)': ['@cf/meta/llama-3.2-11b-vision-instruct']
+      'سریع — گفتگو، صوتی و پلن رایگان': ['@cf/meta/llama-3.1-8b-instruct-fast', '@cf/meta/llama-3.1-8b-instruct-fp8', '@cf/meta/llama-3.2-3b-instruct', '@cf/mistral/mistral-7b-instruct-v0.1'],
+      'چندوجهی (تصویر)': ['@cf/qwen/qwen3.8-27b']
     };
     for (const g in groups) {
       opts += '<optgroup label="' + esc(g) + '">';
