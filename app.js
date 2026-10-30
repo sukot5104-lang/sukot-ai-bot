@@ -120,22 +120,29 @@ function translateErr(err) {
   return err;
 }
 
-/* Unified streaming request across all 3 environments */
+/* Unified streaming request across all 3 environments.
+   Every transport (Android bridge / Electron IPC / fetch) delivers RAW body
+   chunks — the SSE parsing MUST run centrally here for all of them,
+   otherwise raw "data: {...}" lines leak into the chat bubble. */
 function streamRequest(url, headers, body, onDelta, onDone) {
   const cbId = uid();
+  const parser = createSSEParser(onDelta);
+  const handleChunk = (raw) => { try { parser.push(raw); } catch (e) {} };
+  const handleDone = (err) => { try { parser.end(); } catch (e) {} onDone(err); };
+
   if (ENV === 'android') {
-    pendingStreams.set(cbId, { onDelta, onDone });
+    pendingStreams.set(cbId, { onDelta: handleChunk, onDone: handleDone });
     AndroidAI.request(cbId, url, JSON.stringify(headers), JSON.stringify(body));
     return { stop: () => { try { AndroidAI.cancel(cbId); } catch (e) {} } };
   }
   if (ENV === 'electron') {
-    pendingStreams.set(cbId, { onDelta, onDone });
+    pendingStreams.set(cbId, { onDelta: handleChunk, onDone: handleDone });
     window.electronAPI.request({ id: cbId, url, headers, body });
     return { stop: () => { try { window.electronAPI.cancel(cbId); } catch (e) {} } };
   }
   /* web */
   const ctrl = new AbortController();
-  pendingStreams.set(cbId, { onDelta, onDone, abort: ctrl });
+  pendingStreams.set(cbId, { onDelta: handleChunk, onDone: handleDone, abort: ctrl });
   (async () => {
     try {
       const res = await fetch(url, {
@@ -145,33 +152,33 @@ function streamRequest(url, headers, body, onDelta, onDone) {
         const t = await res.text().catch(() => '');
         throw { status: res.status, body: t };
       }
-      const parser = createSSEParser(onDelta);
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
-        parser.push(dec.decode(value, { stream: true }));
+        handleChunk(dec.decode(value, { stream: true }));
       }
-      parser.end();
       pendingStreams.delete(cbId);
-      onDone(null);
+      handleDone(null);
     } catch (err) {
       pendingStreams.delete(cbId);
-      if (err && err.name === 'AbortError') { onDone(null); return; }
-      if (err && err.status) { onDone(friendlyError(err.status, err.body)); return; }
+      if (err && err.name === 'AbortError') { handleDone(null); return; }
+      if (err && err.status) { handleDone(friendlyError(err.status, err.body)); return; }
       onDone('خطای شبکه: اتصال به سرور ممکن نشد. ' + (ENV === 'web' ? '(در مرورگر، درخواست مستقیم به کلادفلر ممکن است به دلایل CORS مسدود شود — از نسخه اندروید/ویندوز استفاده کنید یا Worker واسط راه‌اندازی کنید)' : ''));
     }
   })();
   return { stop: () => { try { ctrl.abort(); } catch (e) {} } };
 }
 
-/* one-shot (non stream) request used by "test connection" */
+/* one-shot request used by "test connection" (stream:true so the same
+   SSE parser path is exercised — stream:false returns plain JSON which the
+   parser would silently drop) */
 function testConnection(cb) {
   const s = settings;
   const url = apiUrl();
   const body = {
-    model: chosenModel(), stream: false, max_tokens: 40,
+    model: chosenModel(), stream: true, max_tokens: 40,
     messages: [{ role: 'user', content: 'سلام! فقط بگو: اتصال برقرار است' }]
   };
   let acc = '';
@@ -340,7 +347,17 @@ function send(textRaw) {
   const w = addMsgDom('bot', '<span class="typing"><i></i><i></i><i></i></span>', botId);
   scrollBottom(true);
 
-  const history = c.msgs.slice(-20).map(m => ({ role: m.r === 'user' ? 'user' : 'assistant', content: m.c }));
+  /* Build a clean payload history:
+     - skip broken assistant messages ([خطا]) and leaked raw SSE from old buggy versions
+     - cap to last 12 messages, each truncated, so prompt tokens stay sane */
+  const history = c.msgs
+    .filter((m) => {
+      const t = String(m.c || '');
+      if (m.r === 'assistant' && (t.startsWith('[خطا]') || /chat\.completion\.chunk|^\s*data:\s*\{/.test(t))) return false;
+      return true;
+    })
+    .slice(-12)
+    .map((m) => ({ role: m.r === 'user' ? 'user' : 'assistant', content: String(m.c).slice(0, 2000) }));
   const body = {
     model: chosenModel(), stream: true, temperature: Number(settings.temp) || 0.7,
     max_tokens: 4096,
