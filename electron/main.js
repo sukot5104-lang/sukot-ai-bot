@@ -2,7 +2,7 @@
    Sukot AI Bot — Electron main process (Windows desktop app)
    Streams AI responses via Node fetch (no CORS limitations).
    ============================================================ */
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -37,6 +37,12 @@ function createWindow() {
   });
   win.loadFile(resolveIndex());
   win.once('ready-to-show', () => win.show());
+
+  /* external links (e.g. Telegram channel) always open in the default browser */
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
 }
 
 app.whenReady().then(() => {
@@ -87,4 +93,9 @@ ipcMain.on('ai:request', async (event, { id, url, headers, body }) => {
 ipcMain.on('ai:cancel', (event, id) => {
   const c = streams.get(id);
   if (c) { streams.delete(id); try { c.abort(); } catch (e) {} }
+});
+
+/* open a link in the system browser (renderer asks via preload) */
+ipcMain.on('open-external', (event, url) => {
+  if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
 });

@@ -2,6 +2,8 @@ package com.sukot.aibot;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -64,7 +66,17 @@ public class MainActivity extends Activity {
         ws.setUseWideViewPort(true);
         ws.setCacheMode(WebSettings.LOAD_DEFAULT);
 
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                /* keep the app inside the WebView; open external links in the browser */
+                if (url != null && url.startsWith("file://")) return false;
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                } catch (Exception ignored) { }
+                return true;
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient());
         webView.addJavascriptInterface(new Bridge(), "AndroidAI");
         webView.loadUrl("file:///android_asset/web/index.html");
@@ -212,6 +224,20 @@ public class MainActivity extends Activity {
         public void cancel(String id) {
             AtomicBoolean f = cancelled.get(id);
             if (f != null) f.set(true);
+        }
+
+        /* ---- open external links (e.g. Telegram channel) in the system browser ---- */
+        @JavascriptInterface
+        public void openUrl(final String url) {
+            if (url == null || !url.startsWith("http")) return;
+            ui.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                    } catch (Exception ignored) { }
+                }
+            });
         }
 
         /* ---- Persian TTS bridge ---- */
