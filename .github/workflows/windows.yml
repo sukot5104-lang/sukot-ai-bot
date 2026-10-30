@@ -1,0 +1,50 @@
+name: 🪟 Build Windows EXE
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'android/**'
+      - 'worker/**'
+      - '**.md'
+  workflow_dispatch:
+
+jobs:
+  build-exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: electron
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Copy web UI into electron dir (needed by electron-builder)
+        run: Copy-Item -Recurse -Force ../web web
+        shell: powershell
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build Windows installers
+        run: npx electron-builder --win nsis portable --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List output
+        run: Get-ChildItem dist
+        shell: powershell
+
+      - name: Upload EXE artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sukot-AI-Bot-windows-exe
+          path: |
+            electron/dist/Sukot-AI-Bot-Setup-*.exe
+            electron/dist/Sukot-AI-Bot-Portable-*.exe
+          if-no-files-found: error
