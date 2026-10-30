@@ -1,5 +1,5 @@
-/* سوکات AI — offline shell cache v1.1.0 */
-const CACHE = 'sukot-ai-v1.1.0';
+/* سوکات AI — offline shell cache v1.2.0 */
+const CACHE = 'sukot-ai-v1.2.0';
 const ASSETS = ['./', './index.html', './app.js', './styles.css', './manifest.webmanifest', './img/hero.jpg', './icons/icon-192.png', './icons/icon-512.png', './fonts/Vazirmatn-Regular.woff2', './fonts/Vazirmatn-Bold.woff2'];
 
 self.addEventListener('install', (e) => {

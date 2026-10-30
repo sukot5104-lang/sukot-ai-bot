@@ -1,22 +1,24 @@
 /* ============================================================
-   سوکات AI (Sukot AI) v1.1.0 — Persian AI chatbot
+   سوکات AI (Sukot AI) v1.2.0 — Persian AI chatbot
    powered by Cloudflare Workers AI
    Works on: Browser (PWA) / Android WebView / Electron (Windows)
 
-   v1.1.0 highlights
-   - مغز بزرگ: long-term memory (auto + manual) persisted locally
-   - 16 models, smart defaults, rich Persian system prompt
-   - answer styles (کوتاه/متعادل/مفصل), long context window
-   - reasoning-model support (stri)
-   - SSE parsed centrally for ALL transports (web/android/electron)
+   v1.2.0 highlights
+   - جستجوی زندهٔ وب (DDG + Bing + Wikipedia) برای اطلاعات به‌روز
+   - ۴ دستیار تخصصی: عمومی / برنامه‌نویسی / درسی / صوتی
+   - دکمهٔ «کپی کد» روی هر بلوک کد
+   - خواندن پاسخ‌ها با صدا (TTS) — وب/ویندوز/اندروید (پل بومی)
+   - پاک‌سازی متن فارسی (حروف عربی→فارسی، نویزه‌های نامرئی)
+   - تاریخ امروز (شمسی) در پرامپت سیستم
    ============================================================ */
 'use strict';
 
 /* ---------- constants ---------- */
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 const CREATOR = 'Sukot';
 const DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const LEGACY_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
+const SEARCH_UA = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
 
 const LS_SET = 'sukot_ai_settings_v1';
 const LS_CHAT = 'sukot_ai_chats_v1';
@@ -43,18 +45,93 @@ const store = (() => {
   }
 })();
 
-/* ---------- personality: the brain of سوکات ---------- */
-const DEFAULT_SYS =
-  'تو «سوکات» هستی؛ یک دستیار هوش مصنوعی فارسی‌زبان، گرم، باهوش و خنده‌رو که در نرم‌افزار «سوکات AI» زندگی می‌کنی.\n' +
-  '- همیشه فارسیِ روان، خودمانی و محترمانه پاسخ بده.\n' +
-  '- سازنده و طراح تو «' + CREATOR + '» است. اگر از تو پرسیدند چه کسی تو را ساخته یا طراح برنامه کیست، با افتخار بگو: «سازندهٔ من ' + CREATOR + ' است.»\n' +
-  '- پاسخ‌هایت دقیق، کامل و آموزنده باشند؛ موضوع را قدم‌به‌قدم و با مثال یا نمونهٔ کاربردی توضیح بده.\n' +
-  '- برای خوانایی از نشانه‌گذاری markdown استفاده کن: تیترها را **پررنگ**، فهرست‌ها با خط تیره یا شماره.\n' +
-  '- اگر از چیزی مطمئن نیستی، صادقانه بگو و حدس نزن.\n' +
-  '- هرگز دادهٔ خام فنی (JSON، کد خطا، SSE و…) را به کاربر نشان نده؛ فقط پاسخ نهایی و تمیز را بنویس.';
+/* ---------- پاک‌سازی متن فارسی (رفع «کلمهٔ عجیب») ----------
+   مدل‌ها گاهی حروف عربی (ي ك ة) یا نویزه‌های نامرئی (ZWNJ اشتباه،
+   tatweel و کنترل‌کاراکتر) تولید می‌کنند که روی صفحه به‌شکل کلمهٔ
+   به‌هم‌ریخته/عجیب دیده می‌شود. همه‌جا یکدست می‌کنیم. */
+function fixPersian(t) {
+  let s = String(t);
+  try { s = s.normalize('NFKC'); } catch (e) {}
+  return s
+    .replace(/[\u200B\u200D\u200E\u200F\uFEFF\u00AD]/g, '')
+    .replace(/\u0640/g, '')
+    .replace(/\u064A/g, '\u06CC')
+    .replace(/\u0643/g, '\u06A9')
+    .replace(/\u0629/g, '\u0647')
+    .replace(/\u06C0/g, '\u0647')
+    .replace(/[\u0623\u0625\u0671]/g, '\u0627')
+    .replace(/\u0624/g, '\u0648')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+}
+
+/* ---------- personality / دستیارهای تخصصی ---------- */
+const BASE_IDENTITY =
+  'تو «سوکات» هستی؛ دستیار هوش مصنوعی فارسی‌زبانِ برنامهٔ «سوکات AI».\n' +
+  '- سازنده و طراح تو «' + CREATOR + '» است. اگر پرسیدند چه کسی تو را ساخته، با افتخار بگو: «سازندهٔ من ' + CREATOR + ' است.»\n' +
+  '- همیشه فارسیِ روان پاسخ بده و همیشه از حروف فارسی «ی» و «ک» استفاده کن؛ هرگز حروف عربی «ي» و «ك» را ننویس.\n' +
+  '- هرگز دادهٔ خام فنی (JSON، کد خطا، SSE و…) را نشان نده؛ فقط پاسخ نهایی و تمیز بنویس.\n' +
+  '- برای خوانایی از markdown استفاده کن: تیتر **پررنگ**، فهرست با خط تیره.';
+
+const DEFAULT_SYS = BASE_IDENTITY +
+  '\n- پاسخ‌ها دقیق، کامل و آموزنده باشند؛ موضوع را قدم‌به‌قدم و با مثال توضیح بده.\n' +
+  '- اگر از چیزی مطمئن نیستی، صادقانه بگو و حدس نزن.';
+
+const CATEGORIES = {
+  general: {
+    name: 'اطلاعات عمومی',
+    icon: 'i-globe',
+    desc: 'پاسخ به‌روز با جستجوی زندهٔ وب',
+    model: DEFAULT_MODEL,
+    temp: 0.7, style: 'detailed', web: 'auto', autoSpeak: false,
+    sys: BASE_IDENTITY +
+      '\n- دانشمند همه‌فن‌حریف و کنجکاوی هستی که پاسخ‌ها را دقیق و همه‌جانبه می‌دهد.\n' +
+      '- اگر نتایج جستجوی وب در اختیارت گذاشته شد، پاسخ را بر پایهٔ همان نتایج بده و منبع بیاور.\n' +
+      '- اگر از اتفاق‌های خیلی اخیر پرسیدند و جستجو در دسترس نبود، صادقانه بگو که اطلاعات ممکن است به‌روز نباشد.'
+  },
+  code: {
+    name: 'برنامه‌نویسی',
+    icon: 'i-code',
+    desc: 'کدِ کامل، قابل اجرا و با توضیح',
+    model: '@cf/qwen/qwen2.5-coder-32b-instruct',
+    temp: 0.35, style: 'detailed', web: 'auto', autoSpeak: false,
+    sys: BASE_IDENTITY +
+      '\n- تو مهندس نرم‌افزار ارشد و دستیار برنامه‌نویسی هستی.\n' +
+      '- هر کد را داخل بلوک ``` با ذکر زبان بده (مثلاً ```python) تا دکمهٔ «کپی کد» ظاهر شود.\n' +
+      '- کد کامل و قابل اجرا بده: نام‌گذاری تمیز، مدیریت خطا، کامنت کوتاه فارسی.\n' +
+      '- بعد از کد، توضیح مختصر از منطق راه‌حل و در صورت لزوم پیشنهاد بهبود بده.\n' +
+      '- از روش‌های منسوخ استفاده نکن و نسخهٔ مهم کتابخانه‌ها را ذکر کن.'
+  },
+  study: {
+    name: 'درسی و آموزشی',
+    icon: 'i-cap',
+    desc: 'معلم خصوصیِ قدم‌به‌قدم و صبور',
+    model: DEFAULT_MODEL,
+    temp: 0.55, style: 'detailed', web: 'auto', autoSpeak: false,
+    sys: BASE_IDENTITY +
+      '\n- تو معلم خصوصی صبور و انگیزه‌بخش هستی؛ هر مفهوم را از ساده به پیچیده توضیح بده.\n' +
+      '- حل مسئلهٔ ریاضی و فیزیک را مرحله‌به‌مرحله و با فرمول‌های واضح بنویس.\n' +
+      '- مثال‌های ملموس از زندگی روزمره بیاور و اصطلاح سخت را ساده تعریف کن.\n' +
+      '- در پایان هر توضیح یک «خلاصهٔ درس» سه‌چهاره‌ای و یک تمرین کوچک بده.\n' +
+      '- لحن دلسوز و تشویق‌کننده داشته باش؛ خطای کاربر را راهنمایی‌شده اصلاح کن.'
+  },
+  voice: {
+    name: 'گفتگوی صوتی',
+    icon: 'i-mic',
+    desc: 'جواب کوتاه؛ با صدای بلند خوانده می‌شود',
+    model: '@cf/meta/llama-3.1-8b-instruct-fast',
+    temp: 0.8, style: 'short', web: 'off', autoSpeak: true,
+    sys: BASE_IDENTITY +
+      '\n- تو همدم گفتگوی صوتی هستی و پاسخ‌هایت با صدای بلند برای کاربر خوانده می‌شود.\n' +
+      '- مثل یک دوست صمیمی حرف بزن: جمله‌های کوتاه، طبیعی و شنیدنی؛ لحن گرم و پرانرژی.\n' +
+      '- هرگز فهرست گلوله‌ای، جدول، کد و علامت‌های markdown ننویس؛ فقط متن سادهٔ گفتاری.\n' +
+      '- پاسخ ۲ تا ۶ جمله باشد، مگر این که کاربر توضیح مفصل بخواهد.\n' +
+      '- از نشانی اینترنتی و نمادهای خاص پرهیز کن چون با صدا خوانده می‌شوند.'
+  }
+};
+const CAT_ORDER = ['general', 'code', 'study', 'voice'];
 
 const STYLES = {
-  short: { desc: 'سبک پاسخ: خیلی کوتاه و مستقیم — فقط چند جملهٔ ضروری.', max_tokens: 800 },
+  short: { desc: 'سبک پاسخ: خیلی کوتاه و مستقیم — فقط چند جملهٔ ضروری.', max_tokens: 900 },
   normal: { desc: 'سبک پاسخ: متوسط — کامل و روشن، بدون اطالهٔ بی‌مورد.', max_tokens: 2048 },
   detailed: { desc: 'سبک پاسخ: مفصل و عمیق — با مقدمهٔ کوتاه، توضیح اصلی، مثال یا نمونه‌کد در صورت لزوم، و جمع‌بندی نهایی.', max_tokens: 4096 }
 };
@@ -66,6 +143,7 @@ const MODEL_NAMES = {
   '@cf/openai/gpt-oss-20b': 'GPT-OSS 20B',
   '@cf/meta/llama-4-scout-17b-16e-instruct': 'Llama 4 Scout',
   '@cf/qwen/qwen3-30b-a3b': 'Qwen 3 30B',
+  '@cf/qwen/qwen2.5-coder-32b-instruct': 'Qwen2.5 Coder 32B',
   '@cf/qwen/qwq-32b': 'QwQ 32B',
   '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b': 'DeepSeek R1 32B',
   '@cf/mistralai/mistral-small-3.1-24b-instruct': 'Mistral Small 24B',
@@ -85,11 +163,14 @@ function loadSettings() {
   const out = Object.assign({
     token: '', account: '', base: '',
     model: DEFAULT_MODEL, modelCustom: '',
-    sys: '', temp: 0.7, style: 'detailed'
+    sys: '', temp: 0.7, style: 'detailed',
+    cat: 'general', webSearch: 'auto', autoSpeak: false, speakRate: 1
   }, s);
-  /* upgrade users of the old default to the new big brain */
   if (out.model === LEGACY_MODEL && !out.modelPicked) { out.model = DEFAULT_MODEL; }
   if (!STYLES[out.style]) out.style = 'detailed';
+  if (!CATEGORIES[out.cat]) out.cat = 'general';
+  if (!['auto', 'always', 'off'].includes(out.webSearch)) out.webSearch = 'auto';
+  out.speakRate = Math.min(1.5, Math.max(0.6, Number(out.speakRate) || 1));
   return out;
 }
 function saveSettings(s) { try { store.setItem(LS_SET, JSON.stringify(s)); } catch (e) {} }
@@ -154,15 +235,36 @@ function extractMemories(userText) {
 }
 
 /* ---------- system prompt assembly ---------- */
-function buildSystemPrompt() {
-  const base = settings.sys && settings.sys.trim() ? settings.sys.trim() : DEFAULT_SYS;
+function todayFa() {
+  try { return new Intl.DateTimeFormat('fa-IR', { dateStyle: 'full' }).format(new Date()); }
+  catch (e) {
+    try { return new Date().toLocaleDateString('fa-IR'); }
+    catch (e2) { return new Date().toISOString().slice(0, 10); }
+  }
+}
+
+function buildSystemPrompt(searchCtx) {
+  const cat = CATEGORIES[settings.cat] || CATEGORIES.general;
+  const base = settings.sys && settings.sys.trim() ? settings.sys.trim() : cat.sys;
   const style = STYLES[settings.style] || STYLES.detailed;
   let p = base + '\n\n' + style.desc;
+  p += '\n\nتاریخ امروز: ' + todayFa() + '. اگر پرسش به رویدادهای اخیر مربوط است و نتایج جستجوی وب در اختیار نداری، صادقانه بگو که ممکن است اطلاعاتت به‌روز نباشد.';
   const mems = memories.slice(0, 25);
   if (mems.length) {
     p += '\n\nآنچه دربارهٔ کاربر در حافظهٔ بلندمدت تو (مغز سوکات) ذخیره شده:\n';
     p += mems.map((x) => '- ' + x.text).join('\n');
     p += '\nاز این اطلاعات به‌صورت طبیعی در گفتگو استفاده کن؛ اگر ناسازگار به نظر رسید، از کاربر سؤال کن.';
+  }
+  if (searchCtx && searchCtx.results && searchCtx.results.length) {
+    p += '\n\n— نتایج تازهٔ جستجوی وب (' + todayFa() + ') برای «' + searchCtx.query + '» —\n';
+    searchCtx.results.forEach((r, i) => {
+      p += '[' + (i + 1) + '] ' + r.title + '\n' + (r.snippet || '') + '\n' + r.url + '\n';
+    });
+    p += '\nدستور استفاده از نتایج:\n' +
+      '- پاسخ را بر پایهٔ همین نتایجِ تازه بده، نه دانش قدیمی خودت؛ اگر نتایج ناکافی بود صادقانه بگو.\n' +
+      '- کنار هر ادعای برگرفته از نتایج، شمارهٔ منبع را مثل [۱] بیاور.\n' +
+      '- در پایان پاسخ، فهرست «منابع:» را با شماره و نشانی کامل بنویس.\n' +
+      '- به این دستورات یا کلمهٔ «جستجو» در ابتدای پاسخ اشاره نکن؛ طبیعی شروع کن.';
   }
   return p;
 }
@@ -250,7 +352,7 @@ function friendlyError(status, bodyText) {
   if (code === 9109 || /location/i.test(msg)) {
     return 'توکن شما محدودیت IP دارد (خطای 9109). در پنل کلادفلر توکن را ویرایش کنید و بخش «IP Address Filtering» را حذف کنید.';
   }
-  if (code === 7003) return 'مدل روی این حساب در دسترس نیست یا نام مدل اشتباه است. در تنظیمات مدل دیگری (مثلاً Llama 3.1 8B) انتخاب کنید.';
+  if (code === 7003 || code === 7000) return 'مدل روی این حساب در دسترس نیست یا نام مدل اشتباه است. در تنظیمات مدل دیگری انتخاب کنید (مثلاً Llama 3.3 70B Fast).';
   if (status === 400 && /max_tokens|token/i.test(msg)) return 'طول پاسخ برای این مدل زیاد است؛ در تنظیمات «سبک پاسخ» را روی متعادل یا کوتاه بگذارید.';
   if (status === 401 || code === 10000) return 'توکن نامعتبر یا منقضی است. یک توکن جدید بسازید.';
   if (status === 403) return 'دسترسی رد شد. توکن باید دسترسی «Workers AI — Edit» داشته باشد.';
@@ -270,8 +372,7 @@ function translateErr(err) {
 }
 
 /* Unified streaming request across all 3 environments.
-   Every transport (Android bridge / Electron IPC / fetch) delivers RAW body
-   chunks — SSE parsing runs centrally here for all of them. */
+   Every transport delivers RAW body chunks — SSE parsing runs centrally. */
 function streamRequest(url, headers, body, onDelta, onDone) {
   const cbId = uid();
   const parser = createSSEParser(onDelta);
@@ -328,7 +429,192 @@ function streamRequest(url, headers, body, onDelta, onDone) {
   return { stop: () => { try { ctrl.abort(); } catch (e) {} } };
 }
 
-/* one-shot request used by "test connection" */
+/* ---------- one-shot GET (web search) across transports ---------- */
+function nativeGet(url) {
+  return new Promise((resolve, reject) => {
+    const cbId = uid();
+    let buf = '';
+    pendingStreams.set(cbId, {
+      onDelta: (t) => { buf += t; },
+      onDone: (err) => {
+        if (err) {
+          const m = String(err).match(/^\s*(\d{3})\|\|([\s\S]*)$/);
+          reject({ status: m ? +m[1] : 0, body: m ? m[2] : String(err) });
+        } else resolve(buf);
+      }
+    });
+    const headers = { 'User-Agent': SEARCH_UA };
+    if (ENV === 'android') {
+      if (typeof AndroidAI === 'undefined' || !AndroidAI.request) {
+        pendingStreams.delete(cbId); reject({ status: 0, body: 'no bridge' }); return;
+      }
+      AndroidAI.request(cbId, url, JSON.stringify(headers), ''); /* empty body => GET */
+    } else if (ENV === 'electron') {
+      if (!window.electronAPI) { pendingStreams.delete(cbId); reject({ status: 0, body: 'no bridge' }); return; }
+      window.electronAPI.request({ id: cbId, url, headers, body: null }); /* null body => GET */
+    } else {
+      pendingStreams.delete(cbId);
+      reject({ status: 0, body: 'web uses fetch' });
+    }
+  });
+}
+
+async function fetchText(url, timeoutMs) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, timeoutMs || 12000);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error('http ' + res.status);
+    return await res.text();
+  } finally { clearTimeout(t); }
+}
+
+/* __SEARCH_PARSERS_START__ */
+function stripTags(s) {
+  return fixPersian(String(s)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')).trim();
+}
+
+/* DuckDuckGo Lite — rows of <a class=result-link href=…> + <td class=result-snippet> */
+function parseDDGLite(html) {
+  const out = [];
+  const snips = [];
+  const snRe = /<td[^>]*result-snippet[^>]*>([\s\S]*?)<\/td>/g;
+  let sm;
+  while ((sm = snRe.exec(html))) snips.push(stripTags(sm[1]));
+  const linkRe = /<a\b([^>]*)>([\s\S]*?)<\/a>/g;
+  let m, i = 0;
+  while ((m = linkRe.exec(html)) && out.length < 8) {
+    const attrs = m[1] || '';
+    if (!/result-link/.test(attrs)) continue;
+    const h = attrs.match(/href=["']?([^"'\s>]+)/);
+    if (!h) continue;
+    let url = h[1];
+    const u = url.match(/[?&]uddg=([^&]+)/);
+    if (u) { try { url = decodeURIComponent(u[1]); } catch (e) {} }
+    if (!/^https?:/i.test(url)) continue;
+    out.push({ title: stripTags(m[2]), url: url, snippet: snips[i] || '' });
+    i++;
+  }
+  return out;
+}
+
+/* DuckDuckGo HTML — a.result__a + a.result__snippet / .result__snippet */
+function parseDDGHtml(html) {
+  const out = [];
+  const blockRe = /<div[^>]*class=["'][^"']*result[^"']*["'][^>]*>([\s\S]*?)<\/div>\s*(?=<div[^>]*class=["'][^"']*result|<\/div>\s*<\/div>|$)/gi;
+  const simpleRe = /<a[^>]*class=["'][^"']*result__a[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/g;
+  const snipRe = /class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/a>/g;
+  const snips = [];
+  let sm;
+  while ((sm = snipRe.exec(html))) snips.push(stripTags(sm[1]));
+  let m, i = 0;
+  while ((m = simpleRe.exec(html)) && out.length < 8) {
+    let url = m[1];
+    const u = url.match(/[?&]uddg=([^&]+)/);
+    if (u) { try { url = decodeURIComponent(u[1]); } catch (e) {} }
+    if (!/^https?:/i.test(url)) continue;
+    out.push({ title: stripTags(m[2]), url: url, snippet: snips[i] || '' });
+    i++;
+  }
+  return out;
+}
+
+/* Bing — <li class=b_algo><h2><a href>title</a></h2>… <p>snippet</p> */
+function parseBing(html) {
+  const out = [];
+  const liRe = /<li\b[^>]*class=["'][^"']*b_algo[^"']*["'][^>]*>([\s\S]*?)<\/li>/g;
+  let m;
+  while ((m = liRe.exec(html)) && out.length < 8) {
+    const seg = m[1];
+    const a = seg.match(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
+    if (!a) continue;
+    if (!/^https?:/i.test(a[1])) continue;
+    const p = seg.match(/<p\b[^>]*>([\s\S]*?)<\/p>/i);
+    out.push({ title: stripTags(a[2]), url: a[1], snippet: p ? stripTags(p[1]) : '' });
+  }
+  return out;
+}
+
+/* Wikipedia (CORS-friendly everywhere) */
+function parseWiki(jsonText, lang) {
+  const j = JSON.parse(jsonText);
+  const hits = (j.query && j.query.search) || [];
+  return hits.map((h) => ({
+    title: fixPersian(h.title || ''),
+    url: 'https://' + lang + '.wikipedia.org/wiki/' + encodeURIComponent(String(h.title || '').replace(/ /g, '_')),
+    snippet: stripTags(h.snippet || '')
+  }));
+}
+/* __SEARCH_PARSERS_END__ */
+
+/* engine chain: native = direct GET; web = CORS proxies then Wikipedia (direct) */
+async function viaProxies(url, parse) {
+  const wrapped = [
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+    'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url)
+  ];
+  for (const p of wrapped) {
+    try {
+      const r = parse(await fetchText(p, 13000));
+      if (r && r.length) return r;
+    } catch (e) { /* next proxy */ }
+  }
+  return [];
+}
+
+/* engine race: all engines run in parallel with per-engine timeout;
+   first engine that returns results wins (order preserved via small staggers).
+   native = direct GET; web = CORS proxies then Wikipedia (direct). */
+function withTimeout(p, ms) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('search timeout')), ms))]);
+}
+
+async function runEngineRace(engines) {
+  const tasks = engines.map((run, i) =>
+    withTimeout(
+      new Promise((res) => setTimeout(res, i * 220)).then(run),
+      12000
+    ).then((r) => {
+      if (!r || !r.length) throw new Error('engine ' + i + ': empty');
+      return r.slice(0, 5);
+    })
+  );
+  try { return await Promise.any(tasks); } catch (e) { return []; }
+}
+
+async function webSearch(query) {
+  const q = encodeURIComponent(String(query).slice(0, 140));
+  const engines = [];
+  if (ENV === 'web') {
+    engines.push(() => viaProxies('https://lite.duckduckgo.com/lite/?q=' + q, parseDDGLite));
+    engines.push(() => viaProxies('https://html.duckduckgo.com/html/?q=' + q, parseDDGHtml));
+    engines.push(() => viaProxies('https://www.bing.com/search?q=' + q, parseBing));
+    engines.push(async () => parseWiki(await fetchText('https://fa.wikipedia.org/w/api.php?action=query&format=json&origin=*&list=search&srlimit=5&srsearch=' + q, 11000), 'fa'));
+    engines.push(async () => parseWiki(await fetchText('https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&list=search&srlimit=5&srsearch=' + q, 11000), 'en'));
+  } else {
+    engines.push(async () => parseDDGLite(await nativeGet('https://lite.duckduckgo.com/lite/?q=' + q)));
+    engines.push(async () => parseDDGHtml(await nativeGet('https://html.duckduckgo.com/html/?q=' + q)));
+    engines.push(async () => parseBing(await nativeGet('https://www.bing.com/search?q=' + q)));
+    engines.push(async () => parseWiki(await nativeGet('https://fa.wikipedia.org/w/api.php?action=query&format=json&origin=*&list=search&srlimit=5&srsearch=' + q), 'fa'));
+    engines.push(async () => parseWiki(await nativeGet('https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&list=search&srlimit=5&srsearch=' + q), 'en'));
+  }
+  try { return await runEngineRace(engines); } catch (e) { return []; }
+}
+
+const SEARCH_HINTS = /(اخبار|خبرهای|خبر |امروز|دیروز|به تازگی|جدیدترین|آخرین|اکنون|الان|قیمت|نرخ|دلار|تومان|بیت.?کوین|ارز|بورس|آب و هوا|هوا.?شناسی|نتیجه|جدول|امتیاز|انتخابات|نسخه|آپدیت|به.?روز|چه کسی|کی بود|کجاست|چند شد|تاریخ امروز|تعطیل|سال (۲۰)?\d{2}|۱۴۰[۰-۹])/i;
+
+function shouldSearch(text) {
+  const mode = settings.webSearch || 'auto';
+  if (mode === 'off') return false;
+  if (mode === 'always') return true;
+  return SEARCH_HINTS.test(text);
+}
+
+/* ---------- one-shot request used by "test connection" ---------- */
 function testConnection(cb) {
   const url = apiUrl();
   const body = {
@@ -371,13 +657,20 @@ function stripThink(text) {
   return { text: s.slice(0, open) + s.slice(close + 8), thinking: false };
 }
 
-/* ---------- markdown-lite renderer ---------- */
+/* ---------- markdown-lite renderer (with copy-code blocks) ---------- */
 function renderMD(text) {
-  let s = esc(text);
+  let s = esc(fixPersian(text));
   const blocks = [];
-  s = s.replace(/```([\w+-]*)\n?([\s\S]*?)```/g, (m, lang, code) => {
-    blocks.push('<pre><code>' + code.replace(/\n$/, '') + '</code></pre>');
-    return '\u0000B' + (blocks.length - 1) + '\u0000';
+  s = s.replace(/```([\w+#.-]*)\n?([\s\S]*?)```/g, (m, lang, code) => {
+    const i = blocks.length;
+    const label = lang ? lang.toUpperCase() : 'کد';
+    blocks.push(
+      '<div class="codeblock"><div class="code-bar">' +
+      '<span class="lang" dir="ltr">' + esc(label) + '</span>' +
+      '<button type="button" class="code-copy"><svg class="ic ic-sm"><use href="#i-copy"/></svg><span>کپی کد</span></button>' +
+      '</div><pre><code dir="ltr">' + code.replace(/\n$/, '') + '</code></pre></div>'
+    );
+    return '\u0000B' + i + '\u0000';
   });
   s = s.replace(/`([^`\n]+)`/g, '<code class="inline">$1</code>');
   s = s.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
@@ -408,12 +701,112 @@ function renderMD(text) {
   return html;
 }
 
+/* ---------- clipboard (secure-context + legacy fallback for WebView file://) ---------- */
+function copyText(txt, onDone) {
+  const done = () => { if (onDone) onDone(); };
+  const legacy = () => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.style.cssText = 'position:fixed;top:-999px;opacity:0';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done();
+    } catch (e) { done(); }
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(txt).then(done, legacy);
+  } else legacy();
+}
+
+/* ---------- TTS: خواندن پاسخ با صدا ---------- */
+const TTS_NATIVE = () => ENV === 'android' && typeof AndroidAI !== 'undefined' && AndroidAI.speak;
+const TTS_WEB = () => typeof speechSynthesis !== 'undefined' && typeof SpeechSynthesisUtterance !== 'undefined';
+let ttsVoices = [];
+function loadVoices() {
+  try { ttsVoices = speechSynthesis.getVoices() || []; } catch (e) { ttsVoices = []; }
+}
+if (TTS_WEB()) {
+  loadVoices();
+  try { speechSynthesis.onvoiceschanged = loadVoices; } catch (e) {}
+}
+function pickVoice() {
+  return ttsVoices.find((v) => /^fa/i.test(v.lang)) ||
+         ttsVoices.find((v) => /persian|farsi|فارسی/i.test(v.name)) || null;
+}
+
+let speakActive = null; // {btn, timer}
+function setSpeakBtn(btn, on) {
+  if (!btn) return;
+  btn.classList.toggle('speaking', on);
+  btn.title = on ? 'توقف خواندن' : 'خواندن با صدا';
+  const use = btn.querySelector('use');
+  if (use) use.setAttribute('href', on ? '#i-stop' : '#i-speak');
+}
+function cleanForSpeech(t) {
+  let s = stripThink(t).text;
+  s = s.replace(/[*_#]*\s*(?:منابع|منبع|Sources?)\s*:?\s*[\s\S]*$/i, ' ');
+  s = s.replace(/```[\s\S]*?```/g, ' قطعهٔ کد. ');
+  s = s.replace(/`([^`]+)`/g, '$1');
+  s = s.replace(/\[([^\]]{1,80})\]\([^)]*\)/g, '$1');
+  s = s.replace(/https?:\/\/\S+/g, ' ');
+  s = s.replace(/[#>*_~|]+/g, ' ');
+  s = s.replace(/^[-•]+\s*/gm, '');
+  s = s.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}]/gu, ' ');
+  s = fixPersian(s).replace(/\s+/g, ' ').trim();
+  return s;
+}
+function stopSpeak() {
+  try { if (TTS_NATIVE()) AndroidAI.stopSpeak(); } catch (e) {}
+  try { if (TTS_WEB()) speechSynthesis.cancel(); } catch (e) {}
+  if (speakActive) {
+    clearTimeout(speakActive.timer);
+    setSpeakBtn(speakActive.btn, false);
+    speakActive = null;
+  }
+}
+window.__ttsDone = function () {
+  if (speakActive) {
+    clearTimeout(speakActive.timer);
+    setSpeakBtn(speakActive.btn, false);
+    speakActive = null;
+  }
+};
+function speak(raw, btn) {
+  if (!raw) return;
+  if (speakActive && speakActive.btn === btn) { stopSpeak(); return; }
+  stopSpeak();
+  const clean = cleanForSpeech(raw).slice(0, 4000);
+  if (!clean) { toast('متنی برای خواندن نیست', true); return; }
+  if (TTS_NATIVE()) {
+    try { AndroidAI.speak(clean); } catch (e) { toast('خواندن با صدا ممکن نشد', true); return; }
+    speakActive = { btn: btn, timer: setTimeout(window.__ttsDone, 4000 + clean.length * 95) };
+    setSpeakBtn(btn, true);
+  } else if (TTS_WEB()) {
+    const u = new SpeechSynthesisUtterance(clean);
+    const v = pickVoice();
+    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'fa-IR';
+    u.rate = Number(settings.speakRate) || 1;
+    u.pitch = 1;
+    u.onend = window.__ttsDone;
+    u.onerror = window.__ttsDone;
+    speakActive = { btn: btn, timer: null };
+    setSpeakBtn(btn, true);
+    speechSynthesis.speak(u);
+  } else {
+    toast('خواندن با صدا در این دستگاه پشتیبانی نمی‌شود', true);
+  }
+}
+
 /* ---------- state ---------- */
 let settings = loadSettings();
 let chats = loadChats();
 memories = loadMemories();
 let currentId = chats.length ? chats[0].id : null;
 let activeStream = null;
+let sendLock = false;
 
 /* ---------- UI: chats ---------- */
 function currentChat() { return chats.find((c) => c.id === currentId) || null; }
@@ -466,19 +859,24 @@ function addMsgDom(role, html, id) {
     '<div class="bubble-wrap" style="min-width:0">' +
     '<div class="bubble"' + (id ? ' id="' + id + '"' : '') + '>' + html + '</div>' +
     (role === 'bot'
-      ? '<div class="meta"><button class="copy-btn"><svg class="ic ic-sm"><use href="#i-copy"/></svg><span> کپی پاسخ</span></button></div>'
+      ? '<div class="meta">' +
+        '<button class="speak-btn" title="خواندن با صدا"><svg class="ic ic-sm"><use href="#i-speak"/></svg></button>' +
+        '<button class="copy-btn"><svg class="ic ic-sm"><use href="#i-copy"/></svg><span> کپی پاسخ</span></button>' +
+        '<span class="src-chip hidden"><svg class="ic ic-sm"><use href="#i-globe"/></svg><span class="src-txt"></span></span>' +
+        '</div>'
       : '') +
     '</div>';
   if (role === 'bot') {
+    const bubble = w.querySelector('.bubble');
     w.querySelector('.copy-btn').addEventListener('click', () => {
-      const txt = w.querySelector('.bubble').innerText;
-      const done = () => {
+      copyText(bubble.innerText, () => {
         const b = w.querySelector('.copy-btn');
         b.innerHTML = '<svg class="ic ic-sm"><use href="#i-check"/></svg><span> کپی شد</span>';
         setTimeout(() => { b.innerHTML = '<svg class="ic ic-sm"><use href="#i-copy"/></svg><span> کپی پاسخ</span>'; }, 1600);
-      };
-      if (navigator.clipboard) navigator.clipboard.writeText(txt).then(done, done);
-      else done();
+      });
+    });
+    w.querySelector('.speak-btn').addEventListener('click', () => {
+      speak(w.dataset.raw || bubble.innerText, w.querySelector('.speak-btn'));
     });
   }
   $('#messages').appendChild(w);
@@ -490,6 +888,14 @@ function errorHTML(msg) {
     '<svg class="ic ic-sm" style="color:var(--err)"><use href="#i-alert"/></svg><span>' + esc(msg) + '</span></p>';
 }
 
+function showSources(w, results) {
+  const chip = w.querySelector('.src-chip');
+  if (!chip || !results) return;
+  chip.querySelector('.src-txt').textContent = 'جستجوی وب · ' + results.length + ' منبع';
+  chip.classList.remove('hidden');
+  chip.title = results.map((r, i) => '[' + (i + 1) + '] ' + r.title).join('\n');
+}
+
 function renderMessages() {
   const c = currentChat();
   $('#messages').innerHTML = '';
@@ -499,8 +905,9 @@ function renderMessages() {
   for (const m of c.msgs) {
     if (m.r === 'user') addMsgDom('user', '<p>' + esc(m.c) + '</p>');
     else {
-      const v = stripThink(m.c).text || '[پاسخی ثبت نشد]';
-      addMsgDom('bot', renderMD(v));
+      const v = fixPersian(stripThink(m.c).text) || '[پاسخی ثبت نشد]';
+      const w = addMsgDom('bot', renderMD(v));
+      w.dataset.raw = v;
     }
   }
   scrollBottom(true);
@@ -538,9 +945,10 @@ function buildHistory(c) {
   return out;
 }
 
-function send(textRaw) {
+async function send(textRaw) {
+  if (sendLock) return;
   const text = (textRaw !== undefined ? textRaw : $('#input').value).trim();
-  if (!text || activeStream) return;
+  if (!text) return;
 
   if (!settings.token.trim() || !settings.account.trim()) { openSettings(); return; }
   if (!chosenModel()) { openSettings(); return; }
@@ -562,6 +970,26 @@ function send(textRaw) {
   saveChats(chats);
   scrollBottom(true);
 
+  sendLock = true;
+  setBusy(true);
+
+  /* — جستجوی زندهٔ وب — */
+  let searchResults = null;
+  const searchMode = settings.webSearch || 'auto';
+  if (shouldSearch(text)) {
+    const botId0 = 'bot-' + uid();
+    const w0 = addMsgDom('bot', '<div class="searching-note"><svg class="ic"><use href="#i-globe"/></svg><span>در حال جستجوی وب برای اطلاعات تازه…</span></div>', botId0);
+    scrollBottom(true);
+    try {
+      const r = await webSearch(text);
+      if (r && r.length) searchResults = r;
+    } catch (e) { searchResults = null; }
+    w0.remove();
+    if (!searchResults) {
+      toast('جستجوی وب نتیجه‌ای نداشت — با دانش خودم پاسخ می‌دهم', true);
+    }
+  }
+
   const botId = 'bot-' + uid();
   const w = addMsgDom('bot', '<span class="typing"><i></i><i></i><i></i></span>', botId);
   scrollBottom(true);
@@ -571,11 +999,10 @@ function send(textRaw) {
     model: chosenModel(), stream: true,
     temperature: Number(settings.temp) || 0.7,
     max_tokens: style.max_tokens,
-    messages: [{ role: 'system', content: buildSystemPrompt() }].concat(buildHistory(c))
+    messages: [{ role: 'system', content: buildSystemPrompt(searchResults ? { query: text, results: searchResults } : null) }].concat(buildHistory(c))
   };
 
   let acc = '';
-  setBusy(true);
   activeStream = streamRequest(apiUrl(), apiHeaders(), body,
     (delta) => {
       acc += delta;
@@ -584,27 +1011,38 @@ function send(textRaw) {
       if (v.thinking) {
         bubble.innerHTML = '<div class="thinking-note"><svg class="ic"><use href="#i-chip"/></svg><span>دارم عمیق فکر می‌کنم…</span></div>';
       } else if (v.text) {
-        bubble.innerHTML = renderMD(v.text);
+        const shown = fixPersian(v.text);
+        bubble.innerHTML = renderMD(shown);
+        w.dataset.raw = shown;
       } else {
         bubble.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
       }
       scrollBottom(false);
     },
     (err) => {
-      activeStream = null; setBusy(false);
+      activeStream = null; setBusy(false); sendLock = false;
       const bubble = w.querySelector('.bubble');
-      const v = stripThink(acc);
+      let v = stripThink(acc);
+      if (searchResults && searchResults.length && v.text && !/منابع|source/i.test(v.text)) {
+        v = { text: v.text + '\n\n**منابع:**\n' + searchResults.map((r, i) => '- [' + (i + 1) + '] [' + r.title + '](' + r.url + ')').join('\n'), thinking: false };
+      }
+      const finalText = fixPersian(v.text || '');
       if (err) {
         if (!acc.trim()) bubble.innerHTML = errorHTML(err);
-        else bubble.innerHTML = renderMD(v.text) + '<p style="color:var(--err);font-size:12px;margin-top:6px">' + esc(err) + '</p>';
-      } else if (!v.text.trim()) {
+        else bubble.innerHTML = renderMD(finalText) + '<p style="color:var(--err);font-size:12px;margin-top:6px">' + esc(err) + '</p>';
+      } else if (!finalText.trim()) {
         bubble.innerHTML = errorHTML('پاسخی دریافت نشد — مدل و Account ID را در تنظیمات بررسی کنید.');
       } else {
-        bubble.innerHTML = renderMD(v.text);
+        bubble.innerHTML = renderMD(finalText);
       }
-      c.msgs.push({ r: 'assistant', c: (v.text || '[خطا] ' + (err || '')).slice(0, 20000) });
+      if (searchResults) showSources(w, searchResults);
+      w.dataset.raw = finalText;
+      c.msgs.push({ r: 'assistant', c: (finalText || '[خطا] ' + (err || '')).slice(0, 20000) });
       saveChats(chats);
       scrollBottom(false);
+      if (!err && finalText.trim() && settings.autoSpeak) {
+        speak(finalText, w.querySelector('.speak-btn'));
+      }
     }
   );
 }
@@ -613,13 +1051,60 @@ function stopStream() {
   if (activeStream) { activeStream.stop(); }
 }
 
+/* ---------- categories UI ---------- */
+function catLabel(id) { return (CATEGORIES[id] || CATEGORIES.general).name; }
+function applyCat(id, silent) {
+  const c = CATEGORIES[id];
+  if (!c) return;
+  settings.cat = id;
+  settings.model = c.model;
+  settings.temp = c.temp;
+  settings.style = c.style;
+  settings.webSearch = c.web;
+  settings.autoSpeak = c.autoSpeak;
+  settings.modelPicked = true;
+  saveSettings(settings);
+  refreshStatus(); updateWebBtn(); markCatCards();
+  if (!silent) toast('حالت «' + c.name + '» فعال شد — مدل: ' + prettyModel(c.model));
+}
+function markCatCards() {
+  document.querySelectorAll('.cat-card').forEach((b) => {
+    b.classList.toggle('active', b.dataset.cat === settings.cat);
+  });
+}
+function refreshCatBadge() {
+  const c = CATEGORIES[settings.cat] || CATEGORIES.general;
+  const use = document.querySelector('#cat-badge use');
+  if (use) use.setAttribute('href', '#' + c.icon);
+  document.querySelector('#cat-badge .cat-name').textContent = c.name;
+}
+
+/* ---------- web-search toggle (composer) ---------- */
+const WEB_STATES = { auto: 'خودکار', always: 'همیشه', off: 'خاموش' };
+function updateWebBtn() {
+  const b = $('#btn-web');
+  const m = settings.webSearch || 'auto';
+  b.dataset.mode = m;
+  b.title = 'جستجوی وب: ' + WEB_STATES[m] + ' (کلیک برای تغییر)';
+  b.classList.toggle('mode-off', m === 'off');
+  b.classList.toggle('mode-always', m === 'always');
+}
+function cycleWebMode() {
+  const order = ['auto', 'always', 'off'];
+  const next = order[(order.indexOf(settings.webSearch || 'auto') + 1) % order.length];
+  settings.webSearch = next;
+  saveSettings(settings);
+  updateWebBtn();
+  toast('جستجوی وب: ' + WEB_STATES[next]);
+}
+
 /* ---------- settings modal ---------- */
 function openSettings() {
   $('#set-token').value = settings.token;
   $('#set-account').value = settings.account;
   $('#set-base').value = settings.base;
   const sel = $('#set-model');
-  const opts = Array.from(sel.options).map((o) => o.value);
+  const opts = Array.from(sel.querySelectorAll('option')).map((o) => o.value);
   sel.value = opts.includes(settings.model) ? settings.model : 'custom';
   $('#set-model-custom').value = settings.modelCustom || '';
   $('#set-model-custom').classList.toggle('hidden', sel.value !== 'custom');
@@ -627,6 +1112,10 @@ function openSettings() {
   $('#set-style').value = settings.style || 'detailed';
   $('#set-temp').value = settings.temp;
   $('#temp-val').textContent = settings.temp;
+  $('#set-web').value = settings.webSearch || 'auto';
+  $('#set-autospeak').checked = !!settings.autoSpeak;
+  $('#set-rate').value = settings.speakRate || 1;
+  $('#rate-val').textContent = settings.speakRate || 1;
   $('#test-result').textContent = ''; $('#test-result').className = 'test-result';
   $('#settings-backdrop').classList.remove('hidden');
 }
@@ -642,6 +1131,10 @@ function readSettingsFromModal() {
     sys: $('#set-sysprompt').value.trim(),
     style: $('#set-style').value,
     temp: $('#set-temp').value,
+    webSearch: $('#set-web').value,
+    autoSpeak: $('#set-autospeak').checked,
+    speakRate: Number($('#set-rate').value) || 1,
+    cat: settings.cat,
     modelPicked: true
   };
 }
@@ -649,7 +1142,7 @@ function readSettingsFromModal() {
 function saveFromModal() {
   settings = readSettingsFromModal();
   saveSettings(settings);
-  refreshStatus(); closeSettings();
+  refreshStatus(); updateWebBtn(); closeSettings();
   toast('تنظیمات ذخیره شد');
 }
 
@@ -658,6 +1151,7 @@ function refreshStatus() {
   $('#status-dot').className = 'dot ' + (ok ? 'dot-on' : 'dot-off');
   $('#status-text').textContent = ok ? 'متصل — Cloudflare Workers AI' : 'تنظیمات لازم است';
   $('#model-badge span').textContent = prettyModel(chosenModel());
+  refreshCatBadge();
 }
 
 /* ---------- brain modal ---------- */
@@ -756,6 +1250,38 @@ function boot() {
     $('#set-model-custom').classList.toggle('hidden', $('#set-model').value !== 'custom');
   });
   $('#set-temp').addEventListener('input', () => { $('#temp-val').textContent = $('#set-temp').value; });
+  $('#set-rate').addEventListener('input', () => { $('#rate-val').textContent = $('#set-rate').value; });
+
+  /* categories: welcome cards + header badge + modal */
+  document.querySelectorAll('.cat-card').forEach((b) => {
+    b.addEventListener('click', () => {
+      applyCat(b.dataset.cat, false);
+      if ($('#cat-backdrop') && !$('#cat-backdrop').classList.contains('hidden')) closeCat();
+    });
+  });
+  $('#cat-badge').addEventListener('click', () => { markCatCards(); $('#cat-backdrop').classList.remove('hidden'); });
+  $('#btn-close-cat').addEventListener('click', closeCat);
+  $('#cat-backdrop').addEventListener('click', (e) => { if (e.target.id === 'cat-backdrop') closeCat(); });
+  function closeCat() { $('#cat-backdrop').classList.add('hidden'); }
+
+  /* web search quick toggle */
+  $('#btn-web').addEventListener('click', cycleWebMode);
+
+  /* code-copy (event delegation — bubbles re-render while streaming) */
+  $('#messages').addEventListener('click', (e) => {
+    const btn = e.target.closest('.code-copy');
+    if (!btn) return;
+    const block = btn.closest('.codeblock');
+    if (!block) return;
+    copyText(block.querySelector('code').innerText, () => {
+      btn.classList.add('copied');
+      btn.innerHTML = '<svg class="ic ic-sm"><use href="#i-check"/></svg><span>کپی شد!</span>';
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.innerHTML = '<svg class="ic ic-sm"><use href="#i-copy"/></svg><span>کپی کد</span>';
+      }, 1800);
+    });
+  });
 
   /* brain */
   $('#btn-brain-side').addEventListener('click', openBrain);
@@ -783,7 +1309,10 @@ function boot() {
 
   document.querySelectorAll('.suggestion').forEach((b) => b.addEventListener('click', () => send(b.textContent)));
 
+  markCatCards(); updateWebBtn();
   renderChatList(); renderMessages(); refreshStatus(); autoGrow();
+
+  window.addEventListener('beforeunload', () => { try { stopSpeak(); } catch (e) {} });
 
   /* PWA: register service worker only when served over https */
   if ('serviceWorker' in navigator && location.protocol === 'https:') {

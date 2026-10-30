@@ -1,0 +1,16 @@
+{
+  "name": "سوکات AI — دستیار هوشمند فارسی",
+  "short_name": "سوکات AI",
+  "description": "دستیار گفتگوی هوشمند فارسی با مغز بزرگ و حافظهٔ بلندمدت — ساخت Sukot، با قدرت Cloudflare Workers AI",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12091f",
+  "theme_color": "#12091f",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
