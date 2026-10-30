@@ -13,6 +13,7 @@ const port = Number(process.argv[2] || 8787);
 const WEB = path.join(__dirname, '..', 'web');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
 
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,15 +27,18 @@ http.createServer((req, res) => {
     req.on('data', (d) => { body += d; });
     req.on('end', () => {
       let userMsg = 'سلام';
+      let grounded = false;
       try {
         const j = JSON.parse(body);
         const users = (j.messages || []).filter((m) => m.role === 'user');
         userMsg = (users.length ? users[users.length - 1].content : 'سلام').slice(0, 200);
+        grounded = (j.messages || []).some((m) => m.role === 'system' && m.content.includes('نتایج تازهٔ جستجوی وب'));
       } catch (e) {}
       res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
       const text =
-        'سلام! من **سوکات** هستم و این پیام از **سرور ماک** آمده است.\n\n' +
-        'پیام تو این بود:\n\n> ' + userMsg + '\n\n' +
+        'سلام! من **سوکات** هستم و این پیام از **سرور ماک** آمده است. یک كلمهٔ عربی تست: سال ﻱ ۱۴۰٤\n\n' +
+        (grounded ? 'پاسخ بر اساس **نتایج جستجوی وب** داده شد و منبع دارد:\n\n**منابع:**\n- [1] [Mock News](https://example.com/news)\n\n' : '') +
+        'یک نمونه کد:\n\n```html\n<div class="salam">درود بر Sukot</div>\n```\n\n' +
         '- ترارسانی (streaming) به درستی کار می‌کند\n' +
         '- رابط کاربری فارسی و راست‌به‌چپ سالم است\n' +
         '- سازندهٔ من Sukot است\n\n' +
@@ -54,6 +58,19 @@ http.createServer((req, res) => {
       }, 35);
       res.on('close', () => clearInterval(timer));
     });
+    return;
+  }
+
+  /* --- fake search engine (for E2E of the webSearch chain) --- */
+  if (url.pathname === '/mock/ddg-lite') {
+    const q = decodeURIComponent(url.searchParams.get('q') || '');
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`<table>
+      <tr><td>1.</td><td><a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fnews%3Fq%3D1&rut=a" class='result-link'>خبر تازه دربارهٔ ${esc(q)}</a></td></tr>
+      <tr><td class='result-snippet'>آخرین اطلاعات به‌روز برای جستجوی «${esc(q)}» — از سرور ماک.</td></tr>
+      <tr><td>2.</td><td><a rel="nofollow" href="https://example.org/doc" class='result-link'>سند دوم</a></td></tr>
+      <tr><td class='result-snippet'>توضیح کوتاه دوم.</td></tr>
+    </table>`);
     return;
   }
 

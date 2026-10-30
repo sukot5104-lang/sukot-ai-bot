@@ -50,15 +50,16 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-/* ---- streaming AI bridge ---- */
+/* ---- streaming AI bridge (POST) + one-shot GET (web search) ---- */
 ipcMain.on('ai:request', async (event, { id, url, headers, body }) => {
   const ctrl = new AbortController();
   streams.set(id, ctrl);
   try {
+    const isGet = body === null || body === undefined;
     const res = await fetch(url, {
-      method: 'POST',
+      method: isGet ? 'GET' : 'POST',
       headers: headers,
-      body: JSON.stringify(body),
+      body: isGet ? undefined : JSON.stringify(body),
       signal: ctrl.signal
     });
     if (!res.ok) {
