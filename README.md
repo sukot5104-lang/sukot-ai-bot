@@ -5,7 +5,7 @@
 | پلتفرم | فایل | وضعیت ساخت |
 |---|---|---|
 | 🤖 اندروید (APK) | `Sukot-AI-Bot-android.apk` | ![Android](https://github.com/sukot5104-lang/sukot-ai-bot/actions/workflows/android.yml/badge.svg) |
-| 🪟 ویندوز (نصبی + پرتابل) | `Sukot-AI-Bot-Setup-1.0.0.exe` | ![Windows](https://github.com/sukot5104-lang/sukot-ai-bot/actions/workflows/windows.yml/badge.svg) |
+| 🪟 ویندوز (نصبی + پرتابل) | `Sukot-AI-Bot-Setup-1.0.1.exe` | ![Windows](https://github.com/sukot5104-lang/sukot-ai-bot/actions/workflows/windows.yml/badge.svg) |
 | 🌐 وب / PWA | پوشه `web/` | همیشه با repo |
 
 > 📦 **دانلود فایل‌های آماده:** بخش [Releases](../../releases) این ریپازیتوری.
@@ -39,7 +39,7 @@ gradle -p android assembleDebug
 
 # ویندوز (نیاز به Node 20)
 cd electron && npm install && npm run dist
-# خروجی: electron/dist/Sukot-AI-Bot-Setup-1.0.0.exe + نسخه Portable
+# خروجی: electron/dist/Sukot-AI-Bot-Setup-1.0.1.exe + نسخه Portable
 ```
 
 بیلد هم به‌صورت خودکار با GitHub Actions انجام می‌شود — هر push به `main` یک APK و EXE تازه می‌سازد (تب Actions).

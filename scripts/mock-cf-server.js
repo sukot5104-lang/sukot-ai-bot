@@ -56,6 +56,16 @@ http.createServer((req, res) => {
     return;
   }
 
+  /* --- dev simulation pages (android/electron bridge testing) --- */
+  if (url.pathname.startsWith('/__dev/')) {
+    const f = path.join(__dirname, url.pathname.replace('/__dev/', ''));
+    if (fs.existsSync(f) && fs.statSync(f).isFile()) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      fs.createReadStream(f).pipe(res);
+    } else { res.writeHead(404); res.end('not found'); }
+    return;
+  }
+
   /* --- static ../web --- */
   let p = url.pathname === '/' ? '/index.html' : url.pathname;
   p = p.split('?')[0];
