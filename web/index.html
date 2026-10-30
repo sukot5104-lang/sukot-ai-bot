@@ -38,6 +38,8 @@
   <symbol id="i-speak" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.8 5.2a9 9 0 0 1 0 13.6"/></symbol>
   <symbol id="i-telegram" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M21.94 4.35 18.9 19.13c-.23 1.03-.84 1.28-1.7.8l-4.7-3.46-2.27 2.18c-.25.25-.46.46-.94.46l.34-4.78 8.72-7.88c.38-.34-.08-.53-.58-.19L7.1 12.91l-4.62-1.44c-1-.31-1.02-1 .21-1.48L20.24 3.05c.84-.31 1.57.19 1.3 1.3z"/></symbol>
   <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
 </svg>
 
 <div id="app">
@@ -128,7 +130,12 @@
     </div>
 
     <footer id="composer-wrap">
+      <div id="attach-bar" class="attach-bar hidden"></div>
       <div id="composer">
+        <button id="btn-attach" class="web-btn" title="پیوست عکس یا فایل (عکس را مدل می‌بیند، فایل متنی/کد را می‌خواند)">
+          <svg class="ic ic-lg"><use href="#i-paperclip"/></svg>
+        </button>
+        <input type="file" id="file-input" class="hidden" multiple accept="image/*,.txt,.md,.markdown,.json,.csv,.tsv,.log,.xml,.yml,.yaml,.html,.htm,.css,.js,.mjs,.ts,.jsx,.tsx,.py,.java,.kt,.c,.h,.cpp,.cs,.php,.rb,.go,.rs,.swift,.sql,.sh,.bat,.ini,.toml,.svg,.srt,.vtt">
         <button id="btn-web" class="web-btn" title="جستجوی وب: خودکار" data-mode="auto">
           <svg class="ic ic-lg"><use href="#i-globe"/></svg>
         </button>
@@ -158,7 +165,7 @@
     <label class="field">
       <span>سرویس هوش مصنوعی (پروایدر)</span>
       <select id="set-provider">
-        <option value="cloudflare">Cloudflare Workers AI — ۱۶ مدل، پلن رایگان (پیش‌فرض)</option>
+        <option value="cloudflare">Cloudflare Workers AI — ۲۵ مدل + غول‌های بالای ۳۰۰B (پیش‌فرض، تست‌شده ✓)</option>
         <option value="zai">Z.ai GLM — مغز غول‌پیکر ۳۵۵B (مثل جینی/Z.ai)</option>
         <option value="openrouter">OpenRouter — DeepSeek ۶۷۱B و Kimi K2 ۱T (بعضی رایگان)</option>
         <option value="custom">سرویس دلخواه — هر API سازگار با OpenAI</option>
@@ -185,7 +192,7 @@
       <span>مدل هوش مصنوعی</span>
       <select id="set-model"></select>
       <input type="text" id="set-model-custom" placeholder="آیدی دقیق مدل" dir="ltr" class="hidden">
-      <span class="hint">مدل‌های بزرگ‌تر باهوش‌ترند؛ GLM-4.6 (۳۵۵B) و DeepSeek V3 (۶۷۱B) قدرتمندترین‌ها هستند.</span>
+      <span class="hint">مدل‌های بزرگ‌تر باهوش‌ترند؛ GLM 5.3 (کانتکست ۱ میلیون)، Kimi K2.6 (خانوادهٔ ۱ تریلیونی) و DeepSeek V4 Pro قوی‌ترین‌های کلادفلر هستند — این غول‌ها روی پلن پولی فعال می‌شوند؛ روی پلن رایگان سوکات خودکار با مدل پایدار جواب می‌دهد.</span>
     </label>
 
     <label class="field">
@@ -313,8 +320,8 @@
       <img class="about-hero" src="img/hero.jpg" alt="سوکات AI">
     </div>
     <h2 class="about-name">سوکات AI</h2>
-    <div class="about-ver" dir="ltr">v1.3.1</div>
-    <p class="about-desc">دستیار هوشمند فارسی با مغزهای غول‌پیکر (GLM ۳۵۵B، DeepSeek ۶۷۱B)، ابزارهای عامل (انجام کار)، جستجوی زندهٔ وب، قیمت لحظه‌ای ارز، ۴ دستیار تخصصی، صدای فارسی، کپی کد و حافظهٔ بلندمدت — روی اندروید، ویندوز و وب.</p>
+    <div class="about-ver" dir="ltr">v1.4.0</div>
+    <p class="about-desc">دستیار هوشمند فارسی با آپلود فایل و عکس (مدل‌های بینا)، غول‌های بالای ۳۰۰B (GLM 5.3، Kimi K2.6، DeepSeek V4)، ابزارهای عامل (انجام کار)، جستجوی زندهٔ وب، قیمت لحظه‌ای ارز، ۴ دستیار تخصصی، صدای فارسی، کپی کد و حافظهٔ بلندمدت — روی اندروید، ویندوز و وب.</p>
     <a class="about-tg" href="https://t.me/SUKOT1344" target="_blank" rel="noopener">
       <svg class="ic ic-sm"><use href="#i-telegram"/></svg><span>کانال تلگرام: <b dir="ltr">@SUKOT1344</b></span>
     </a>

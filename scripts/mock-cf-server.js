@@ -3,6 +3,7 @@
    Usage:  node scripts/mock-cf-server.js [port]
    - serves ../web as static site
    - POST anything containing /chat/completions → fake SSE stream
+   - v1.4.0: پشتیبانی از پیوست تصویر (image_url) و فایل متنی
    ============================================================ */
 'use strict';
 const http = require('http');
@@ -31,13 +32,22 @@ http.createServer((req, res) => {
       let toolRound = false;
       let contRound = false;
       let model = '';
+      let imgCount = 0;
+      let fileEcho = '';
+      const contentOf = (m) => Array.isArray(m.content)
+        ? m.content.filter((p) => p && p.type === 'text').map((p) => p.text).join(' ')
+        : String((m && m.content) || '');
       try {
         const j = JSON.parse(body);
         const users = (j.messages || []).filter((m) => m.role === 'user');
-        userMsg = (users.length ? users[users.length - 1].content : 'سلام').slice(0, 200);
-        grounded = (j.messages || []).some((m) => m.role === 'system' && m.content.includes('نتایج تازهٔ جستجوی وب'));
-        toolRound = (j.messages || []).some((m) => m.role === 'user' && m.content.includes('نتیجهٔ ابزار'));
-        contRound = (j.messages || []).some((m) => m.role === 'user' && m.content.includes('ناقص بریده شد'));
+        userMsg = (users.length ? contentOf(users[users.length - 1]) : 'سلام').slice(0, 2000);
+        grounded = (j.messages || []).some((m) => m.role === 'system' && contentOf(m).includes('نتایج تازهٔ جستجوی وب'));
+        toolRound = (j.messages || []).some((m) => m.role === 'user' && contentOf(m).includes('نتیجهٔ ابزار'));
+        contRound = (j.messages || []).some((m) => m.role === 'user' && contentOf(m).includes('ناقص بریده شد'));
+        imgCount = (j.messages || []).reduce((n, m) =>
+          Array.isArray(m.content) ? n + m.content.filter((p) => p && p.type === 'image_url' && p.image_url && p.image_url.url).length : n, 0);
+        const fm = userMsg.match(/فایل پیوست «([^»]+)»/);
+        if (fm) fileEcho = fm[1];
         model = j.model || '';
       } catch (e) {}
 
@@ -82,6 +92,8 @@ http.createServer((req, res) => {
           'کد بالا برای تست کپی است.';
       } else {
         text =
+        (imgCount > 0 ? '**عکس را دیدم! ✓** تعداد تصاویر پیوست: ' + imgCount + ' — مدل بینا درست کار می‌کند\n\n' : '') +
+        (fileEcho ? '**فایل متنی را خواندم! ✓** نام فایل: «' + fileEcho + '»\n\n' : '') +
         'سلام! من **سوکات** هستم و این پیام از **سرور ماک** آمده است. یک كلمهٔ عربی تست: سال ﻱ ۱۴۰٤\n\n' +
         (grounded ? 'پاسخ بر اساس **نتایج جستجوی وب** داده شد و منبع دارد:\n\n**منابع:**\n- [1] [Mock News](https://example.com/news)\n\n' : '') +
         'یک نمونه کد:\n\n```html\n<div class="salam">درود بر Sukot</div>\n```\n\n' +

@@ -342,6 +342,43 @@ body{
 .send-btn.busy .i-stop{display:block}
 .composer-hint{max-width:860px;margin:8px auto 0;text-align:center;font-size:10.5px;color:var(--muted2)}
 
+/* ===== v1.4.0: پیوست فایل و عکس ===== */
+#main{position:relative}
+#main.dragging::after{
+  content:'عکس یا فایل را همین‌جا رها کن';
+  position:absolute;inset:12px;z-index:60;pointer-events:none;
+  border:2px dashed rgba(168,85,247,.85);border-radius:18px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(18,9,31,.78);color:var(--text);font-weight:bold;font-size:15px;
+}
+.attach-bar{display:flex;flex-wrap:wrap;gap:8px;max-width:860px;margin:0 auto 8px;padding:0 2px}
+.attach-bar.hidden{display:none}
+.attach-chip{
+  display:inline-flex;align-items:center;gap:7px;padding:4px 6px;
+  background:rgba(255,255,255,.06);border:1px solid var(--border-soft);
+  border-radius:11px;font-size:11px;color:var(--text);
+}
+.attach-chip.is-img{padding:3px 6px 3px 3px}
+.attach-chip img{width:36px;height:36px;object-fit:cover;border-radius:8px;display:block}
+.attach-chip .ic{color:var(--accent);width:17px;height:17px}
+.attach-chip .nm{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr}
+.attach-chip button{
+  display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+  border-radius:6px;background:rgba(255,93,115,.16);color:#ffb3be;border:none;cursor:pointer;padding:0;
+}
+.attach-chip button:hover{background:rgba(255,93,115,.34)}
+#btn-attach{color:var(--accent)}
+.att-grid{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 7px}
+.att-img{width:112px;height:112px;object-fit:cover;border-radius:11px;border:1px solid var(--border-soft)}
+.att-files{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 7px}
+.att-file{
+  display:inline-flex;align-items:center;gap:6px;padding:5px 9px;
+  background:rgba(168,85,247,.14);border:1px solid rgba(168,85,247,.35);
+  border-radius:9px;font-size:11px;color:var(--text);
+}
+.att-file .ic{color:#c084fc;width:14px;height:14px}
+.dot-live{animation-duration:1.5s}
+
 /* ===== modals ===== */
 .backdrop{
   position:fixed;inset:0;background:rgba(6,3,12,.74);backdrop-filter:blur(8px);
