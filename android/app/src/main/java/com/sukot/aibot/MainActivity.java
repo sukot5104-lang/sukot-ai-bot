@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -27,6 +28,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -241,6 +243,26 @@ public class MainActivity extends Activity {
         }
 
         /* ---- Persian TTS bridge ---- */
+        /* آیا موتور گفتار دستگاه صدای فارسی دارد؟ */
+        @JavascriptInterface
+        public boolean hasFaTts() {
+            if (!ttsReady || tts == null) return false;
+            try {
+                if (Build.VERSION.SDK_INT >= 21) {
+                    Set<Locale> langs = tts.getAvailableLanguages();
+                    if (langs != null) {
+                        for (Locale l : langs) {
+                            if (l != null && l.getLanguage() != null && l.getLanguage().startsWith("fa")) return true;
+                        }
+                    }
+                }
+                int r = tts.isLanguageAvailable(new Locale("fa", "IR"));
+                return r >= TextToSpeech.LANG_AVAILABLE;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
         @JavascriptInterface
         public void speak(final String text) {
             if (!ttsReady || tts == null || text == null || text.trim().isEmpty()) return;

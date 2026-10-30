@@ -1,20 +1,18 @@
 /* ============================================================
-   سوکات AI (Sukot AI) v1.2.0 — Persian AI chatbot
-   powered by Cloudflare Workers AI
-   Works on: Browser (PWA) / Android WebView / Electron (Windows)
+   سوکات AI (Sukot AI) v1.3.0 — Persian AI chatbot
+   powered by Cloudflare Workers AI · Z.ai GLM · OpenRouter
 
-   v1.2.0 highlights
-   - جستجوی زندهٔ وب (DDG + Bing + Wikipedia) برای اطلاعات به‌روز
-   - ۴ دستیار تخصصی: عمومی / برنامه‌نویسی / درسی / صوتی
-   - دکمهٔ «کپی کد» روی هر بلوک کد
-   - خواندن پاسخ‌ها با صدا (TTS) — وب/ویندوز/اندروید (پل بومی)
-   - پاک‌سازی متن فارسی (حروف عربی→فارسی، نویزه‌های نامرئی)
-   - تاریخ امروز (شمسی) در پرامپت سیستم
+   v1.3.0 highlights
+   - مغزهای غول‌پیکر: Z.ai GLM-4.6 (۳۵۵B) + OpenRouter (DeepSeek ۶۷۱B، Kimi K2 ۱T)
+   - حالت عامل (انجام کار): ابزار جستجو، ماشین‌حساب، زمان، خواندن صفحه
+   - رفع کپی نصفه‌کارهٔ کدهای بلند: کپی از متن خام + ادامهٔ خودکار پاسخ بریده
+   - قیمت لحظه‌ای دقیق دلار/یورو/بیت‌کوین از API مستقیم ارز و کریپتو
+   - صدای بهتر: تشخیص صدای فارسی، خواندن تکه‌تکه، راهنمای نصب صدا، تست صدا
    ============================================================ */
 'use strict';
 
 /* ---------- constants ---------- */
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.3.0';
 const CREATOR = 'Sukot';
 const DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const LEGACY_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
@@ -132,8 +130,8 @@ const CAT_ORDER = ['general', 'code', 'study', 'voice'];
 
 const STYLES = {
   short: { desc: 'سبک پاسخ: خیلی کوتاه و مستقیم — فقط چند جملهٔ ضروری.', max_tokens: 900 },
-  normal: { desc: 'سبک پاسخ: متوسط — کامل و روشن، بدون اطالهٔ بی‌مورد.', max_tokens: 2048 },
-  detailed: { desc: 'سبک پاسخ: مفصل و عمیق — با مقدمهٔ کوتاه، توضیح اصلی، مثال یا نمونه‌کد در صورت لزوم، و جمع‌بندی نهایی.', max_tokens: 4096 }
+  normal: { desc: 'سبک پاسخ: متوسط — کامل و روشن، بدون اطالهٔ بی‌مورد.', max_tokens: 4096 },
+  detailed: { desc: 'سبک پاسخ: مفصل و عمیق — با مقدمهٔ کوتاه، توضیح اصلی، مثال یا نمونه‌کد در صورت لزوم، و جمع‌بندی نهایی.', max_tokens: 8192 }
 };
 
 const MODEL_NAMES = {
@@ -156,21 +154,69 @@ const MODEL_NAMES = {
   '@cf/google/gemma-3-12b-it': 'Gemma 3 12B'
 };
 
+/* ---------- پروایدرها: کلادفلر / Z.ai GLM / OpenRouter / دلخواه ---------- */
+const PROVIDERS = {
+  cloudflare: {
+    name: 'Cloudflare Workers AI',
+    tokenUrl: 'dash.cloudflare.com → Workers AI → Use REST API',
+    needsAccount: true,
+    endpoint: (s) => 'https://api.cloudflare.com/client/v4/accounts/' + encodeURIComponent((s.account || '').trim()) + '/ai/v1/chat/completions',
+    models: MODEL_NAMES
+  },
+  zai: {
+    name: 'Z.ai — GLM (مغز غول‌پیکر)',
+    tokenUrl: 'z.ai/manage-apikey/apikey-list',
+    needsAccount: false,
+    endpoint: () => 'https://api.z.ai/api/paas/v4/chat/completions',
+    models: {
+      'glm-4.6': 'GLM-4.6 — مغز ۳۵۵ میلیارد پارامتری (پیشنهادی)',
+      'glm-4.5': 'GLM-4.5 — ۳۵۵ میلیارد پارامتری',
+      'glm-4.5-air': 'GLM-4.5-Air — سبک‌تر و سریع‌تر',
+      'glm-4.5-flash': 'GLM-4.5-Flash — سریع و اقتصادی'
+    }
+  },
+  openrouter: {
+    name: 'OpenRouter — مدل‌های غول‌پیکر دنیا',
+    tokenUrl: 'openrouter.ai/keys',
+    needsAccount: false,
+    endpoint: () => 'https://openrouter.ai/api/v1/chat/completions',
+    models: {
+      'deepseek/deepseek-chat-v3-0324:free': 'DeepSeek V3 — ۶۷۱B (رایگان)',
+      'deepseek/deepseek-r1-0528:free': 'DeepSeek R1 — استدلالی ۶۷۱B (رایگان)',
+      'meta-llama/llama-4-maverick:free': 'Llama 4 Maverick — ۴۰۰B',
+      'moonshotai/kimi-k2:free': 'Kimi K2 — ۱ تریلیون پارامتر',
+      'qwen/qwen3-235b-a22b:free': 'Qwen 3 — ۲۳۵B'
+    }
+  },
+  custom: {
+    name: 'سرویس دلخواه (سازگار با OpenAI)',
+    tokenUrl: 'آدرس API را در فیلد پایین وارد کنید',
+    needsAccount: false,
+    endpoint: () => '',
+    models: {}
+  }
+};
+
 /* ---------- settings ---------- */
 function loadSettings() {
   let s = {};
   try { s = JSON.parse(store.getItem(LS_SET) || '{}'); } catch (e) {}
   const out = Object.assign({
     token: '', account: '', base: '',
+    provider: 'cloudflare',
     model: DEFAULT_MODEL, modelCustom: '',
     sys: '', temp: 0.7, style: 'detailed',
-    cat: 'general', webSearch: 'auto', autoSpeak: false, speakRate: 1
+    cat: 'general', webSearch: 'auto', autoSpeak: false, speakRate: 1,
+    agentTools: true, voice: '', ttsFallback: true
   }, s);
   if (out.model === LEGACY_MODEL && !out.modelPicked) { out.model = DEFAULT_MODEL; }
   if (!STYLES[out.style]) out.style = 'detailed';
   if (!CATEGORIES[out.cat]) out.cat = 'general';
   if (!['auto', 'always', 'off'].includes(out.webSearch)) out.webSearch = 'auto';
+  if (!PROVIDERS[out.provider]) out.provider = 'cloudflare';
   out.speakRate = Math.min(1.5, Math.max(0.6, Number(out.speakRate) || 1));
+  out.agentTools = out.agentTools !== false;
+  out.ttsFallback = out.ttsFallback !== false;
   return out;
 }
 function saveSettings(s) { try { store.setItem(LS_SET, JSON.stringify(s)); } catch (e) {} }
@@ -266,7 +312,97 @@ function buildSystemPrompt(searchCtx) {
       '- در پایان پاسخ، فهرست «منابع:» را با شماره و نشانی کامل بنویس.\n' +
       '- به این دستورات یا کلمهٔ «جستجو» در ابتدای پاسخ اشاره نکن؛ طبیعی شروع کن.';
   }
+  if (settings.agentTools !== false) p += AGENT_TOOLS_PROMPT;
   return p;
+}
+
+/* ---------- حالت عامل: ابزارهای انجام کار ---------- */
+const AGENT_TOOLS_PROMPT =
+  '\n\n— ابزارهای عامل (حالت انجام کار) —\n' +
+  'تو می‌توانی ابزار اجرا کنی. اگر برای پاسخ به اطلاعات بیرونی، محاسبهٔ دقیق، زمان حال، یا محتوای یک صفحهٔ وب نیاز داری، فقط و فقط یک شیء JSON به این شکل بنویس و هیچ چیز دیگری ننویس:\n' +
+  '{"tool":"web_search","query":"عبارت جستجو"}\n' +
+  '{"tool":"calculator","expression":"عبارت ریاضی با اعداد انگلیسی"}\n' +
+  '{"tool":"now"}\n' +
+  '{"tool":"fetch_page","url":"https://…"}\n' +
+  'بلافاصله پس از آن، «نتیجهٔ ابزار» برایت ارسال می‌شود تا پاسخ نهایی کامل فارسی را بدهی. اگر ابزار لازم نداری، مستقیم و طبیعی پاسخ بده و هرگز JSON ننویس.';
+
+function parseToolCall(t) {
+  const s = String(t || '').trim();
+  if (s.indexOf('{') !== 0 || s.indexOf('}') === -1) return null;
+  const m = s.match(/^(?:```(?:json)?\s*)?(\{[\s\S]*\})(?:\s*```)?$/);
+  if (!m) return null;
+  try {
+    const j = JSON.parse(m[1]);
+    if (j && typeof j.tool === 'string') return j;
+  } catch (e) {}
+  return null;
+}
+
+async function runTool(call) {
+  try {
+    if (call.tool === 'web_search') {
+      const r = await webSearch(String(call.query || ''));
+      if (!r || !r.length) return 'جستجو نتیجه‌ای نداشت.';
+      return r.map((x, i) => '[' + (i + 1) + '] ' + x.title + ' — ' + (x.snippet || '') + ' (' + x.url + ')').join('\n');
+    }
+    if (call.tool === 'calculator') {
+      const e = String(call.expression || '').replace(/[،,]/g, '').replace(/×/g, '*').replace(/÷/g, '/').replace(/\^/g, '**');
+      if (!/^[-+*/(). 0-9%e]+$/.test(e)) return 'خطا: فقط عبارت ریاضی مجاز است.';
+      const v = Function('"use strict";return (' + e + ')')();
+      return 'نتیجهٔ محاسبهٔ ' + e + ' برابر است با: ' + (typeof v === 'number' && isFinite(v) ? v : 'نامعتبر');
+    }
+    if (call.tool === 'now') {
+      let hm = '';
+      try { hm = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit' }).format(new Date()); } catch (e) { hm = new Date().toTimeString().slice(0, 5); }
+      return 'الان: ' + todayFa() + ' — ساعت ' + hm;
+    }
+    if (call.tool === 'fetch_page') {
+      const u = String(call.url || '');
+      if (!/^https?:\/\//i.test(u)) return 'خطا: نشانی نامعتبر است.';
+      let t = '';
+      if (ENV === 'web') t = await fetchText(u, 13000);
+      else t = await nativeGet(u);
+      return stripTags(t).slice(0, 2500);
+    }
+    return 'ابزار ناشناخته: ' + call.tool;
+  } catch (e) {
+    return 'خطای اجرای ابزار: ' + (e && e.message ? e.message : e);
+  }
+}
+
+/* ---------- قیمت لحظه‌ای ارز و کریپتو (API مستقیم و دقیق) ---------- */
+const PRICE_HINTS = /(دلار|یورو|پوند|درهم|لیر|یوآن|روبل|روپیه|ارز|بیت.?کوین|اتریوم|کریپتو|تتر|طلا|سکه)/i;
+
+function getPriceText(url) {
+  if (ENV === 'web') return fetchText(url, 9000);
+  return nativeGet(url);
+}
+
+async function priceData(text) {
+  const out = [];
+  const jobs = [];
+  if (/دلار|یورو|ارز|لیر|درهم|پوند|روبل|یوآن/i.test(text)) {
+    jobs.push(getPriceText('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json').then((t) => {
+      const j = JSON.parse(t);
+      const usd = j && j.usd;
+      if (usd && usd.irr) {
+        out.push({ title: 'قیمت لحظه‌ای دلار آمریکا', url: 'https://github.com/fawazahmed0/exchange-api', snippet: '۱ دلار آمریکا = ' + Number(usd.irr).toLocaleString('en-US') + ' ریال (حدود ' + Math.round(usd.irr / 10).toLocaleString('en-US') + ' تومان) — نرخ به‌روز بازار جهانی' });
+      }
+      if (usd && usd.eur) {
+        out.push({ title: 'قیمت یورو', url: 'https://github.com/fawazahmed0/exchange-api', snippet: '۱ یورو = ' + Number(usd.eur).toLocaleString('en-US') + ' دلار آمریکا' });
+      }
+    }));
+  }
+  if (/بیت.?کوین|اتریوم|کریپتو|تتر/i.test(text)) {
+    jobs.push(getPriceText('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tether&vs_currencies=usd').then((t) => {
+      const j = JSON.parse(t);
+      if (j && j.bitcoin) out.push({ title: 'قیمت لحظه‌ای بیت‌کوین', url: 'https://www.coingecko.com/en/coins/bitcoin', snippet: '۱ بیت‌کوین = ' + Number(j.bitcoin.usd).toLocaleString('en-US') + ' دلار' });
+      if (j && j.ethereum) out.push({ title: 'قیمت لحظه‌ای اتریوم', url: 'https://www.coingecko.com/en/coins/ethereum', snippet: '۱ اتریوم = ' + Number(j.ethereum.usd).toLocaleString('en-US') + ' دلار' });
+      if (j && j.tether) out.push({ title: 'قیمت تتر', url: 'https://www.coingecko.com/en/coins/tether', snippet: '۱ تتر = ' + Number(j.tether.usd).toLocaleString('en-US') + ' دلار' });
+    }));
+  }
+  try { await Promise.allSettled(jobs); } catch (e) {}
+  return out;
 }
 
 /* ---------- environment / transport ---------- */
@@ -605,7 +741,7 @@ async function webSearch(query) {
   try { return await runEngineRace(engines); } catch (e) { return []; }
 }
 
-const SEARCH_HINTS = /(اخبار|خبرهای|خبر |امروز|دیروز|به تازگی|جدیدترین|آخرین|اکنون|الان|قیمت|نرخ|دلار|تومان|بیت.?کوین|ارز|بورس|آب و هوا|هوا.?شناسی|نتیجه|جدول|امتیاز|انتخابات|نسخه|آپدیت|به.?روز|چه کسی|کی بود|کجاست|چند شد|تاریخ امروز|تعطیل|سال (۲۰)?\d{2}|۱۴۰[۰-۹])/i;
+const SEARCH_HINTS = /(اخبار|خبرهای|خبر |امروز|دیروز|به تازگی|جدیدترین|آخرین|اکنون|الان|قیمت|نرخ|دلار|تومان|بیت.?کوین|ارز|بورس|آب و هوا|هوا.?شناسی|نتیجه|جدول|امتیاز|انتخابات|نسخه|آپدیت|به.?روز|چه کسی|کی بود|کجاست|چند شد|تاریخ امروز|تعطیل|طلا|سکه|هر گرم|سال (۲۰)?\d{2}|۱۴۰[۰-۹])/i;
 
 function shouldSearch(text) {
   const mode = settings.webSearch || 'auto';
@@ -629,11 +765,21 @@ function testConnection(cb) {
   });
 }
 
-/* ---------- API URL / config ---------- */
+/* ---------- API URL / config (multi-provider) ---------- */
 function apiUrl() {
   const s = settings;
-  if (s.base && s.base.trim()) return s.base.trim().replace(/\/+$/, '') + '/v1/chat/completions';
-  return 'https://api.cloudflare.com/client/v4/accounts/' + encodeURIComponent(s.account.trim()) + '/ai/v1/chat/completions';
+  /* override دستی همیشه اولویت دارد (برای تست/سرویس دلخواه) */
+  if (s.base && s.base.trim()) {
+    let b = s.base.trim().replace(/\/+$/, '');
+    if (!/chat\/completions$/.test(b)) {
+      b += /\/v\d+$/.test(b) ? '/chat/completions' : '/v1/chat/completions';
+    }
+    return b;
+  }
+  const p = PROVIDERS[s.provider] || PROVIDERS.cloudflare;
+  const url = p.endpoint(s);
+  if (url) return url;
+  return (s.modelCustom || '').trim() ? '' : url;
 }
 function apiHeaders() {
   return { 'Authorization': 'Bearer ' + settings.token.trim(), 'Content-Type': 'application/json' };
@@ -658,14 +804,28 @@ function stripThink(text) {
 }
 
 /* ---------- markdown-lite renderer (with copy-code blocks) ---------- */
+/* کپی دقیق: متن خام هر بلوک کد با کلید هش محتوا ذخیره می‌شود تا innerText هرگز نصفه‌کاره نشود */
+const codeStore = new Map();
+function codeHash(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return 'cb' + (h >>> 0).toString(36);
+}
+/* متن کد بعد از esc() به ما می‌رسد — قبل از ذخیره/کپی باید رمزگشایی شود */
+function unescCode(s) {
+  return String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+}
 function renderMD(text) {
   let s = esc(fixPersian(text));
   const blocks = [];
   s = s.replace(/```([\w+#.-]*)\n?([\s\S]*?)```/g, (m, lang, code) => {
     const i = blocks.length;
     const label = lang ? lang.toUpperCase() : 'کد';
+    const rawCode = unescCode(code).replace(/\n$/, '');
+    const cid = codeHash(rawCode);
+    codeStore.set(cid, rawCode);
     blocks.push(
-      '<div class="codeblock"><div class="code-bar">' +
+      '<div class="codeblock" data-cid="' + cid + '"><div class="code-bar">' +
       '<span class="lang" dir="ltr">' + esc(label) + '</span>' +
       '<button type="button" class="code-copy"><svg class="ic ic-sm"><use href="#i-copy"/></svg><span>کپی کد</span></button>' +
       '</div><pre><code dir="ltr">' + code.replace(/\n$/, '') + '</code></pre></div>'
@@ -722,8 +882,14 @@ function copyText(txt, onDone) {
 }
 
 /* ---------- TTS: خواندن پاسخ با صدا ---------- */
-const TTS_NATIVE = () => ENV === 'android' && typeof AndroidAI !== 'undefined' && AndroidAI.speak;
+const TTS_NATIVE = () => ENV === 'android' && typeof AndroidAI !== 'undefined' && !!AndroidAI.speak;
+/* آیا موتور گفتار دستگاه صدا فارسی دارد؟ (پل بومی اندروید) */
+function nativeFaTts() {
+  try { return TTS_NATIVE() && typeof AndroidAI.hasFaTts === 'function' && AndroidAI.hasFaTts() === true; }
+  catch (e) { return false; }
+}
 const TTS_WEB = () => typeof speechSynthesis !== 'undefined' && typeof SpeechSynthesisUtterance !== 'undefined';
+const TTS_GUIDE = 'صدای فارسی روی این دستگاه نصب نیست. راهنما: اندروید ← تنظیمات ← مدیریت عمومی ← تبدیل متن به گفتار ← موتور Google Speech Services را نصب و فعال کن. ویندوز ← تنظیمات ← زمان و زبان ← گفتار ← افزودن صداها ← فارسی.';
 let ttsVoices = [];
 function loadVoices() {
   try { ttsVoices = speechSynthesis.getVoices() || []; } catch (e) { ttsVoices = []; }
@@ -733,11 +899,39 @@ if (TTS_WEB()) {
   try { speechSynthesis.onvoiceschanged = loadVoices; } catch (e) {}
 }
 function pickVoice() {
+  if (settings.voice) {
+    const chosen = ttsVoices.find((x) => x.name === settings.voice || x.voiceURI === settings.voice);
+    if (chosen) return chosen;
+  }
   return ttsVoices.find((v) => /^fa/i.test(v.lang)) ||
          ttsVoices.find((v) => /persian|farsi|فارسی/i.test(v.name)) || null;
 }
+/* متن بلند را به تکه‌های کوتاه بشکن — موتورهای گفتار متن بلند را نصفه می‌خوانند */
+function chunkText(t) {
+  const parts = [];
+  let cur = '';
+  const sents = t.split(/(?<=[.!؟?؛:\n])\s+/);
+  for (const s of sents) {
+    const merged = cur ? cur + ' ' + s : s;
+    if (merged.length > 170) {
+      if (cur) parts.push(cur.trim());
+      if (s.length > 170) {
+        let rest = s;
+        while (rest.length > 170) {
+          let cut = rest.lastIndexOf(' ', 170);
+          if (cut < 40) cut = 170;
+          parts.push(rest.slice(0, cut).trim());
+          rest = rest.slice(cut);
+        }
+        cur = rest;
+      } else cur = s;
+    } else cur = merged;
+  }
+  if (cur && cur.trim()) parts.push(cur.trim());
+  return parts.filter(Boolean);
+}
 
-let speakActive = null; // {btn, timer}
+let speakQueue = []; let speakActive = null; // {btn, timer}
 function setSpeakBtn(btn, on) {
   if (!btn) return;
   btn.classList.toggle('speaking', on);
@@ -759,6 +953,7 @@ function cleanForSpeech(t) {
   return s;
 }
 function stopSpeak() {
+  speakQueue = [];
   try { if (TTS_NATIVE()) AndroidAI.stopSpeak(); } catch (e) {}
   try { if (TTS_WEB()) speechSynthesis.cancel(); } catch (e) {}
   if (speakActive) {
@@ -768,6 +963,7 @@ function stopSpeak() {
   }
 }
 window.__ttsDone = function () {
+  speakQueue = [];
   if (speakActive) {
     clearTimeout(speakActive.timer);
     setSpeakBtn(speakActive.btn, false);
@@ -778,26 +974,67 @@ function speak(raw, btn) {
   if (!raw) return;
   if (speakActive && speakActive.btn === btn) { stopSpeak(); return; }
   stopSpeak();
-  const clean = cleanForSpeech(raw).slice(0, 4000);
+  const clean = cleanForSpeech(raw).slice(0, 6000);
   if (!clean) { toast('متنی برای خواندن نیست', true); return; }
+
+  /* ۱) اندروید: موتور بومی — فقط اگر صدای فارسی دارد، یا کاربر خواندن با صدای پیش‌فرض را بسته است */
   if (TTS_NATIVE()) {
-    try { AndroidAI.speak(clean); } catch (e) { toast('خواندن با صدا ممکن نشد', true); return; }
-    speakActive = { btn: btn, timer: setTimeout(window.__ttsDone, 4000 + clean.length * 95) };
-    setSpeakBtn(btn, true);
-  } else if (TTS_WEB()) {
-    const u = new SpeechSynthesisUtterance(clean);
+    const fa = nativeFaTts();
+    if (fa || settings.ttsFallback) {
+      try { AndroidAI.speak(clean); } catch (e) { toast('خواندن با صدا ممکن نشد', true); return; }
+      speakActive = { btn: btn, timer: setTimeout(window.__ttsDone, 5000 + clean.length * 95) };
+      setSpeakBtn(btn, true);
+      if (!fa) toast('با صدای پیش‌فرض دستگاه خوانده شد؛ برای تلفظ بهترِ فارسی، طبق راهنما صدای فارسی نصب کن', true);
+      return;
+    }
+    toast(TTS_GUIDE, true);
+    return;
+  }
+
+  /* ۲) مرورگر و ویندوز: Web Speech با صف جمله‌ها (خواندن کامل، نه نصفه) */
+  if (TTS_WEB()) {
+    loadVoices();
     const v = pickVoice();
-    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'fa-IR';
-    u.rate = Number(settings.speakRate) || 1;
-    u.pitch = 1;
-    u.onend = window.__ttsDone;
-    u.onerror = window.__ttsDone;
+    if (!v && !settings.ttsFallback) { toast(TTS_GUIDE, true); return; }
+    if (!v) toast('صدای فارسی نصب نیست؛ با صدای پیش‌فرض می‌خوانم', true);
+    const chunks = chunkText(clean);
+    let idx = 0;
+    const next = () => {
+      if (!speakActive || idx >= chunks.length) { window.__ttsDone(); return; }
+      const u = new SpeechSynthesisUtterance(chunks[idx++]);
+      if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'fa-IR';
+      u.rate = Number(settings.speakRate) || 1;
+      u.pitch = 1;
+      u.onend = next;
+      u.onerror = next;
+      try { speechSynthesis.speak(u); } catch (e) { window.__ttsDone(); }
+    };
     speakActive = { btn: btn, timer: null };
     setSpeakBtn(btn, true);
-    speechSynthesis.speak(u);
-  } else {
-    toast('خواندن با صدا در این دستگاه پشتیبانی نمی‌شود', true);
+    next();
+    return;
   }
+
+  toast('خواندن با صدا در این دستگاه پشتیبانی نمی‌شود', true);
+}
+/* تست صدا در تنظیمات */
+function testSpeak() {
+  speak('سلام! من سوکات هستم. صدای من کار می‌کند؛ فارسی برایم آسان است.', $('#btn-tts-test'));
+}
+function refreshVoiceList() {
+  const sel = $('#set-voice');
+  if (!sel) return;
+  loadVoices();
+  let opts = '<option value="">خودکار — بهترین صدای فارسیِ موجود</option>';
+  const fa = ttsVoices.filter((v) => /^fa/i.test(v.lang) || /persian|farsi|فارسی/i.test(v.name));
+  const rest = ttsVoices.filter((v) => fa.indexOf(v) === -1);
+  const opt = (v) => '<option value="' + esc(v.name) + '"' + (settings.voice === v.name ? ' selected' : '') + '>' + esc(v.name) + ' (' + esc(v.lang) + ')</option>';
+  if (fa.length) opts += '<optgroup label="صداهای فارسی">' + fa.map(opt).join('') + '</optgroup>';
+  if (rest.length) opts += '<optgroup label="سایر صداها">' + rest.slice(0, 40).map(opt).join('') + '</optgroup>';
+  if (!ttsVoices.length && TTS_NATIVE()) {
+    opts += '<option value="">موتور بومی اندروید (صدای فارسی: ' + (nativeFaTts() ? 'دارد ✓' : 'ندارد — طبق راهنما نصب کن)') + '</option>';
+  }
+  sel.innerHTML = opts;
 }
 
 /* ---------- state ---------- */
@@ -945,12 +1182,26 @@ function buildHistory(c) {
   return out;
 }
 
+function toolNoteHTML(txt) {
+  return '<div class="tool-note"><svg class="ic"><use href="#i-wrench"/></svg><span>' + esc(txt) + '</span></div>';
+}
+
+/* تشخیص پاسخ بریده‌شده: تعداد فرد بلوک‌های ``` یعنی کد نصفه مانده */
+function looksTruncated(t) {
+  const s = String(t || '');
+  return (s.match(/```/g) || []).length % 2 === 1;
+}
+
+const TOOL_LABELS = { web_search: 'جستجوی وب', calculator: 'ماشین‌حساب', now: 'زمان اکنون', fetch_page: 'خواندن صفحه' };
+
 async function send(textRaw) {
   if (sendLock) return;
   const text = (textRaw !== undefined ? textRaw : $('#input').value).trim();
   if (!text) return;
 
-  if (!settings.token.trim() || !settings.account.trim()) { openSettings(); return; }
+  const p0 = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
+  const needAccount = p0.needsAccount && !(settings.base || '').trim();
+  if (!settings.token.trim() || (needAccount && !settings.account.trim())) { openSettings(); return; }
   if (!chosenModel()) { openSettings(); return; }
 
   /* مغز: learn from the user's message */
@@ -973,78 +1224,129 @@ async function send(textRaw) {
   sendLock = true;
   setBusy(true);
 
-  /* — جستجوی زندهٔ وب — */
-  let searchResults = null;
-  const searchMode = settings.webSearch || 'auto';
-  if (shouldSearch(text)) {
-    const botId0 = 'bot-' + uid();
-    const w0 = addMsgDom('bot', '<div class="searching-note"><svg class="ic"><use href="#i-globe"/></svg><span>در حال جستجوی وب برای اطلاعات تازه…</span></div>', botId0);
-    scrollBottom(true);
-    try {
-      const r = await webSearch(text);
-      if (r && r.length) searchResults = r;
-    } catch (e) { searchResults = null; }
-    w0.remove();
-    if (!searchResults) {
-      toast('جستجوی وب نتیجه‌ای نداشت — با دانش خودم پاسخ می‌دهم', true);
-    }
-  }
-
   const botId = 'bot-' + uid();
   const w = addMsgDom('bot', '<span class="typing"><i></i><i></i><i></i></span>', botId);
   scrollBottom(true);
 
+  /* پیام‌های محلی این نوبت (تبادل ابزار فقط همین‌جا می‌ماند و ذخیره نمی‌شود) */
+  const messages = [{ role: 'system', content: buildSystemPrompt(null) }].concat(buildHistory(c));
+
+  /* — جستجوی پیش‌دستانه + قیمت لحظه‌ای دلار/ارز/کریپتو از API مستقیم — */
+  let searchResults = null;
+  if (shouldSearch(text) || PRICE_HINTS.test(text)) {
+    const botId0 = 'bot-' + uid();
+    const w0 = addMsgDom('bot', '<div class="searching-note"><svg class="ic"><use href="#i-globe"/></svg><span>در حال جستجوی وب برای اطلاعات تازه…</span></div>', botId0);
+    scrollBottom(true);
+    let priceRes = [];
+    if (PRICE_HINTS.test(text)) {
+      try { priceRes = await priceData(text); } catch (e) { priceRes = []; }
+    }
+    let webRes = [];
+    try { webRes = await webSearch(text); } catch (e) { webRes = []; }
+    w0.remove();
+    const all = priceRes.concat(webRes || []);
+    if (all.length) {
+      searchResults = all;
+      messages[0].content = buildSystemPrompt({ query: text, results: all });
+    } else {
+      toast('جستجوی وب نتیجه‌ای نداشت — با دانش خودم پاسخ می‌دهم', true);
+    }
+  }
+
   const style = STYLES[settings.style] || STYLES.detailed;
-  const body = {
-    model: chosenModel(), stream: true,
-    temperature: Number(settings.temp) || 0.7,
-    max_tokens: style.max_tokens,
-    messages: [{ role: 'system', content: buildSystemPrompt(searchResults ? { query: text, results: searchResults } : null) }].concat(buildHistory(c))
+  let maxTokens = style.max_tokens;
+
+  const renderAcc = (rawAcc) => {
+    const v = stripThink(rawAcc);
+    const bubble = w.querySelector('.bubble');
+    if (v.thinking) {
+      bubble.innerHTML = '<div class="thinking-note"><svg class="ic"><use href="#i-chip"/></svg><span>دارم عمیق فکر می‌کنم…</span></div>';
+    } else if (v.text) {
+      const shown = fixPersian(v.text);
+      bubble.innerHTML = renderMD(shown);
+      w.dataset.raw = shown;
+    } else {
+      bubble.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
+    }
+    scrollBottom(false);
   };
 
-  let acc = '';
-  activeStream = streamRequest(apiUrl(), apiHeaders(), body,
-    (delta) => {
-      acc += delta;
-      const v = stripThink(acc);
-      const bubble = w.querySelector('.bubble');
-      if (v.thinking) {
-        bubble.innerHTML = '<div class="thinking-note"><svg class="ic"><use href="#i-chip"/></svg><span>دارم عمیق فکر می‌کنم…</span></div>';
-      } else if (v.text) {
-        const shown = fixPersian(v.text);
-        bubble.innerHTML = renderMD(shown);
-        w.dataset.raw = shown;
-      } else {
-        bubble.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
-      }
-      scrollBottom(false);
-    },
-    (err) => {
-      activeStream = null; setBusy(false); sendLock = false;
-      const bubble = w.querySelector('.bubble');
-      let v = stripThink(acc);
-      if (searchResults && searchResults.length && v.text && !/منابع|source/i.test(v.text)) {
-        v = { text: v.text + '\n\n**منابع:**\n' + searchResults.map((r, i) => '- [' + (i + 1) + '] [' + r.title + '](' + r.url + ')').join('\n'), thinking: false };
-      }
-      const finalText = fixPersian(v.text || '');
-      if (err) {
-        if (!acc.trim()) bubble.innerHTML = errorHTML(err);
-        else bubble.innerHTML = renderMD(finalText) + '<p style="color:var(--err);font-size:12px;margin-top:6px">' + esc(err) + '</p>';
-      } else if (!finalText.trim()) {
-        bubble.innerHTML = errorHTML('پاسخی دریافت نشد — مدل و Account ID را در تنظیمات بررسی کنید.');
-      } else {
-        bubble.innerHTML = renderMD(finalText);
-      }
-      if (searchResults) showSources(w, searchResults);
-      w.dataset.raw = finalText;
-      c.msgs.push({ r: 'assistant', c: (finalText || '[خطا] ' + (err || '')).slice(0, 20000) });
-      saveChats(chats);
-      scrollBottom(false);
-      if (!err && finalText.trim() && settings.autoSpeak) {
-        speak(finalText, w.querySelector('.speak-btn'));
-      }
+  /* — حلقهٔ عامل: حداکثر ۴ دور (ابزار / ادامهٔ پاسخ بریده) — */
+  let full = '';
+  let finalErr = null;
+  for (let round = 0; round < 4; round++) {
+    let acc = '';
+    finalErr = await new Promise((resolve) => {
+      const body = {
+        model: chosenModel(), stream: true,
+        temperature: Number(settings.temp) || 0.7,
+        max_tokens: maxTokens,
+        messages: messages
+      };
+      activeStream = streamRequest(apiUrl(), apiHeaders(), body,
+        (delta) => { acc += delta; renderAcc(stripThink(full + acc).thinking ? full + acc : acc); },
+        (err) => { activeStream = null; resolve(err); }
+      );
+    });
+
+    /* اگر سقف طول پاسخ مدل را رد کرد، نصف کن و همان دور را دوباره بگیر */
+    if (finalErr && /طول پاسخ|max_tokens/i.test(finalErr) && maxTokens > 900) {
+      maxTokens = Math.max(900, Math.floor(maxTokens / 2));
+      round--; continue;
     }
-  );
+
+    const v = stripThink(acc);
+    if (finalErr || !v.text) { full += v.text || ''; break; }
+
+    /* ۱) مدل ابزار خواست؟ اجرا کن و نتیجه را بده */
+    const toolCall = parseToolCall(v.text);
+    if (toolCall && TOOL_LABELS[toolCall.tool] && round < 3) {
+      const q = toolCall.query || toolCall.expression || toolCall.url || '';
+      w.querySelector('.bubble').innerHTML = toolNoteHTML('دارم کار انجام می‌دهم: ' + TOOL_LABELS[toolCall.tool] + (q ? ' («' + q + '»)' : '') + '…');
+      scrollBottom(false);
+      const result = await runTool(toolCall);
+      messages.push({ role: 'assistant', content: v.text });
+      messages.push({ role: 'user', content: 'نتیجهٔ ابزار «' + toolCall.tool + '»:\n' + result + '\n\nحالا با استفاده از این نتیجه، پاسخ نهایی کامل و فارسی را بده (بدون JSON).' });
+      continue;
+    }
+
+    full += v.text;
+
+    /* ۲) پاسخ بریده شد (کد بلند نیمه‌کاره)؟ ادامه بگیر */
+    if (looksTruncated(full) && round < 3) {
+      renderAcc(full);
+      w.querySelector('.bubble').insertAdjacentHTML('beforeend', toolNoteHTML('پاسخ بلند است؛ دارم ادامه‌اش را می‌نویسم…'));
+      scrollBottom(false);
+      messages.push({ role: 'assistant', content: v.text });
+      messages.push({ role: 'user', content: 'پاسخ قبلی‌ات ناقص بریده شد. دقیقاً از همان‌جا که برید ادامه بده؛ چیزی که نوشته‌ای را تکرار نکن و ادامهٔ آن را بنویس.' });
+      continue;
+    }
+    break;
+  }
+
+  activeStream = null; setBusy(false); sendLock = false;
+  const bubble = w.querySelector('.bubble');
+  let vFinal = stripThink(full).text;
+  if (searchResults && searchResults.length && vFinal && !/منابع|source/i.test(vFinal)) {
+    vFinal += '\n\n**منابع:**\n' + searchResults.slice(0, 6).map((r, i) => '- [' + (i + 1) + '] [' + r.title + '](' + r.url + ')').join('\n');
+  }
+  const finalText = fixPersian(vFinal || '');
+  if (finalErr) {
+    if (!finalText.trim()) bubble.innerHTML = errorHTML(finalErr);
+    else bubble.innerHTML = renderMD(finalText) + '<p style="color:var(--err);font-size:12px;margin-top:6px">' + esc(finalErr) + '</p>';
+  } else if (!finalText.trim()) {
+    bubble.innerHTML = errorHTML('پاسخی دریافت نشد — مدل و تنظیمات اتصال را در تنظیمات بررسی کنید.');
+  } else {
+    bubble.innerHTML = renderMD(finalText);
+  }
+  if (searchResults) showSources(w, searchResults);
+  w.dataset.raw = finalText;
+  c.msgs.push({ r: 'assistant', c: (finalText || '[خطا] ' + (finalErr || '')).slice(0, 20000) });
+  saveChats(chats);
+  scrollBottom(false);
+  if (!finalErr && finalText.trim() && settings.autoSpeak) {
+    speak(finalText, w.querySelector('.speak-btn'));
+  }
 }
 
 function stopStream() {
@@ -1057,7 +1359,8 @@ function applyCat(id, silent) {
   const c = CATEGORIES[id];
   if (!c) return;
   settings.cat = id;
-  settings.model = c.model;
+  const cf = (settings.provider || 'cloudflare') === 'cloudflare';
+  if (cf) settings.model = c.model; /* مدل‌های پیش‌فرض دستیارها برای کلادفلر است */
   settings.temp = c.temp;
   settings.style = c.style;
   settings.webSearch = c.web;
@@ -1065,7 +1368,8 @@ function applyCat(id, silent) {
   settings.modelPicked = true;
   saveSettings(settings);
   refreshStatus(); updateWebBtn(); markCatCards();
-  if (!silent) toast('حالت «' + c.name + '» فعال شد — مدل: ' + prettyModel(c.model));
+  const extra = cf ? ' — مدل: ' + prettyModel(c.model) : ' (مدل فعلی ' + prettyModel(chosenModel()) + ' حفظ شد)';
+  if (!silent) toast('حالت «' + c.name + '» فعال شد' + extra);
 }
 function markCatCards() {
   document.querySelectorAll('.cat-card').forEach((b) => {
@@ -1099,41 +1403,86 @@ function cycleWebMode() {
 }
 
 /* ---------- settings modal ---------- */
+let modalProvider = 'cloudflare';
+
+function rebuildModelSelect() {
+  const sel = $('#set-model');
+  const p = PROVIDERS[modalProvider] || PROVIDERS.cloudflare;
+  const models = p.models || {};
+  let opts = '';
+  if (modalProvider === 'cloudflare') {
+    const groups = {
+      'عمومی — مغز بزرگ': ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.3-70b-instruct', '@cf/openai/gpt-oss-120b', '@cf/openai/gpt-oss-20b', '@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/mistralai/mistral-small-3.1-24b-instruct', '@cf/google/gemma-3-12b-it'],
+      'برنامه‌نویسی': ['@cf/qwen/qwen2.5-coder-32b-instruct', '@cf/qwen/qwen3-30b-a3b', '@cf/qwen/qwen1.5-14b-chat-awq'],
+      'استدلال عمیق (کندتر، با تفکر)': ['@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', '@cf/qwen/qwq-32b'],
+      'سریع — گفتگو، صوتی و پلن رایگان': ['@cf/meta/llama-3.1-8b-instruct-fast', '@cf/meta/llama-3.1-8b-instruct', '@cf/meta/llama-3.2-3b-instruct', '@cf/mistral/mistral-7b-instruct-v0.1'],
+      'چندوجهی (تصویر)': ['@cf/meta/llama-3.2-11b-vision-instruct']
+    };
+    for (const g in groups) {
+      opts += '<optgroup label="' + esc(g) + '">';
+      groups[g].forEach((id) => { if (models[id]) opts += '<option value="' + esc(id) + '">' + esc(models[id]) + '</option>'; });
+      opts += '</optgroup>';
+    }
+  } else {
+    opts = Object.keys(models).map((id) => '<option value="' + esc(id) + '">' + esc(models[id]) + '</option>').join('');
+  }
+  opts += '<option value="custom">مدل دلخواه…</option>';
+  sel.innerHTML = opts;
+  const ids = Object.keys(models);
+  const cur = $('#set-model-custom') ? $('#set-model-custom').value.trim() : '';
+  const want = settings.model;
+  sel.value = (ids.indexOf(want) !== -1) ? want : 'custom';
+  if (modalProvider === 'custom') sel.value = 'custom';
+  $('#set-model-custom').value = want && sel.value === 'custom' ? (settings.modelCustom || (want !== 'custom' ? want : cur)) : (settings.modelCustom || '');
+  $('#set-model-custom').classList.toggle('hidden', sel.value !== 'custom');
+  $('#provider-hint').innerHTML = 'دریافت کلید: <span class="en" dir="ltr">' + esc(p.tokenUrl) + '</span>' +
+    (p.needsAccount ? ' + Account ID' : '') +
+    (modalProvider === 'zai' ? ' — مدل‌های جدیدتر GLM را می‌توانی دستی بنویسی (مثل glm-5.x)' : '') +
+    (modalProvider === 'openrouter' ? ' — هر مدل دیگر را می‌توانی از openrouter.ai/models دستی بنویسی' : '');
+}
+
 function openSettings() {
+  modalProvider = settings.provider || 'cloudflare';
+  $('#set-provider').value = modalProvider;
   $('#set-token').value = settings.token;
   $('#set-account').value = settings.account;
   $('#set-base').value = settings.base;
-  const sel = $('#set-model');
-  const opts = Array.from(sel.querySelectorAll('option')).map((o) => o.value);
-  sel.value = opts.includes(settings.model) ? settings.model : 'custom';
-  $('#set-model-custom').value = settings.modelCustom || '';
-  $('#set-model-custom').classList.toggle('hidden', sel.value !== 'custom');
+  rebuildModelSelect();
   $('#set-sysprompt').value = settings.sys || '';
   $('#set-style').value = settings.style || 'detailed';
   $('#set-temp').value = settings.temp;
   $('#temp-val').textContent = settings.temp;
   $('#set-web').value = settings.webSearch || 'auto';
+  $('#set-agent').checked = settings.agentTools !== false;
   $('#set-autospeak').checked = !!settings.autoSpeak;
   $('#set-rate').value = settings.speakRate || 1;
   $('#rate-val').textContent = settings.speakRate || 1;
+  $('#set-ttsfallback').checked = settings.ttsFallback !== false;
+  refreshVoiceList();
   $('#test-result').textContent = ''; $('#test-result').className = 'test-result';
   $('#settings-backdrop').classList.remove('hidden');
 }
 function closeSettings() { $('#settings-backdrop').classList.add('hidden'); }
 
 function readSettingsFromModal() {
+  const sel = $('#set-model');
+  const customVal = $('#set-model-custom').value.trim();
   return {
     token: $('#set-token').value.trim(),
     account: $('#set-account').value.trim(),
     base: $('#set-base').value.trim(),
-    model: $('#set-model').value,
-    modelCustom: $('#set-model-custom').value.trim(),
+    provider: $('#set-provider').value || 'cloudflare',
+    model: sel.value === 'custom' ? (customVal || sel.value) : sel.value,
+    modelCustom: customVal,
     sys: $('#set-sysprompt').value.trim(),
     style: $('#set-style').value,
     temp: $('#set-temp').value,
     webSearch: $('#set-web').value,
+    agentTools: $('#set-agent').checked,
     autoSpeak: $('#set-autospeak').checked,
     speakRate: Number($('#set-rate').value) || 1,
+    voice: $('#set-voice').value || '',
+    ttsFallback: $('#set-ttsfallback').checked,
     cat: settings.cat,
     modelPicked: true
   };
@@ -1147,9 +1496,11 @@ function saveFromModal() {
 }
 
 function refreshStatus() {
-  const ok = settings.token.trim() && settings.account.trim();
+  const p = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
+  const needAcct = p.needsAccount && !(settings.base || '').trim();
+  const ok = settings.token.trim() && (!needAcct || settings.account.trim());
   $('#status-dot').className = 'dot ' + (ok ? 'dot-on' : 'dot-off');
-  $('#status-text').textContent = ok ? 'متصل — Cloudflare Workers AI' : 'تنظیمات لازم است';
+  $('#status-text').textContent = ok ? 'متصل — ' + p.name : 'تنظیمات لازم است';
   $('#model-badge span').textContent = prettyModel(chosenModel());
   refreshCatBadge();
 }
@@ -1249,8 +1600,18 @@ function boot() {
   $('#set-model').addEventListener('change', () => {
     $('#set-model-custom').classList.toggle('hidden', $('#set-model').value !== 'custom');
   });
+  $('#set-provider').addEventListener('change', () => {
+    modalProvider = $('#set-provider').value;
+    if (modalProvider !== 'cloudflare' && settings.provider === 'cloudflare' && settings.model.indexOf('@cf/') === 0) {
+      /* مدل کلادفلر روی سرویس دیگر معنا ندارد — اولین مدل پیشنهادی را بگذار */
+      const first = Object.keys((PROVIDERS[modalProvider] || {}).models || {})[0];
+      if (first) settings.model = first;
+    }
+    rebuildModelSelect();
+  });
   $('#set-temp').addEventListener('input', () => { $('#temp-val').textContent = $('#set-temp').value; });
   $('#set-rate').addEventListener('input', () => { $('#rate-val').textContent = $('#set-rate').value; });
+  $('#btn-tts-test').addEventListener('click', testSpeak);
 
   /* categories: welcome cards + header badge + modal */
   document.querySelectorAll('.cat-card').forEach((b) => {
@@ -1273,7 +1634,9 @@ function boot() {
     if (!btn) return;
     const block = btn.closest('.codeblock');
     if (!block) return;
-    copyText(block.querySelector('code').innerText, () => {
+    const cid = block.dataset.cid;
+    const raw = (cid && codeStore.has(cid)) ? codeStore.get(cid) : block.querySelector('code').innerText;
+    copyText(raw, () => {
       btn.classList.add('copied');
       btn.innerHTML = '<svg class="ic ic-sm"><use href="#i-check"/></svg><span>کپی شد!</span>';
       setTimeout(() => {

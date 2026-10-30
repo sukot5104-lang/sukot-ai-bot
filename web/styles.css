@@ -428,6 +428,15 @@ body{
 .about-tg .ic{color:#54a9ff}
 .about-tg b{color:#54a9ff}
 
+/* ===== ابزارهای عامل (حالت انجام کار) ===== */
+.tool-note{
+  display:flex;align-items:center;gap:9px;
+  color:#cfe4ff;font-size:12.5px;
+  background:rgba(41,134,220,.14);border:1px solid rgba(70,160,255,.4);
+  padding:10px 14px;border-radius:12px;margin:4px 0;
+}
+.tool-note .ic{color:#54a9ff;flex:none}
+
 /* ===== toast ===== */
 .toast{
   position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:80;

@@ -28,14 +28,32 @@ http.createServer((req, res) => {
     req.on('end', () => {
       let userMsg = 'سلام';
       let grounded = false;
+      let toolRound = false;
+      let contRound = false;
       try {
         const j = JSON.parse(body);
         const users = (j.messages || []).filter((m) => m.role === 'user');
         userMsg = (users.length ? users[users.length - 1].content : 'سلام').slice(0, 200);
         grounded = (j.messages || []).some((m) => m.role === 'system' && m.content.includes('نتایج تازهٔ جستجوی وب'));
+        toolRound = (j.messages || []).some((m) => m.role === 'user' && m.content.includes('نتیجهٔ ابزار'));
+        contRound = (j.messages || []).some((m) => m.role === 'user' && m.content.includes('ناقص بریده شد'));
       } catch (e) {}
       res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
-      const text =
+      let text;
+      if (!toolRound && !contRound && /بازی مار/.test(userMsg)) {
+        /* شبیه‌سازی پاسخ بریده: fence بدون بسته‌شدن → برنامه باید ادامه بگیرد */
+        text = 'بازی مار:\n\n```html\n<html><body><h1>مار</h1>\n<script>\nlet snake = [1, 2];\nfunction start() { draw(); }\n';
+      } else if (!toolRound && contRound) {
+        text = 'function go() { draw(); }\nwindow.onload = start;\n</script></body></html>\n```\n\nبازی آماده است؛ کد کامل کپی می‌شود.';
+      } else if (!toolRound && /ابزار|calculator/.test(userMsg)) {
+        /* دور اول: مدل فقط JSON ابزار می‌فرستد — برنامه باید اجرا کند و برگردد */
+        text = '{"tool":"calculator","expression":"(12+8)*3"}';
+      } else if (toolRound) {
+        text = 'با اجرای ابزار ماشین‌حساب، جواب نهایی **۶۰** شد. این پاسخ پس از حلقهٔ ابزار است.\n\n' +
+          '```python\nprint("hi" * 100)\n```\n' +
+          'کد بالا برای تست کپی است.';
+      } else {
+        text =
         'سلام! من **سوکات** هستم و این پیام از **سرور ماک** آمده است. یک كلمهٔ عربی تست: سال ﻱ ۱۴۰٤\n\n' +
         (grounded ? 'پاسخ بر اساس **نتایج جستجوی وب** داده شد و منبع دارد:\n\n**منابع:**\n- [1] [Mock News](https://example.com/news)\n\n' : '') +
         'یک نمونه کد:\n\n```html\n<div class="salam">درود بر Sukot</div>\n```\n\n' +
@@ -44,6 +62,7 @@ http.createServer((req, res) => {
         '- سازندهٔ من Sukot است\n\n' +
         'برای اتصال واقعی، در تنظیمات **توکن** و **Account ID** کلادفلر را وارد کن:\n\n' +
         '```\nhttps://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/ai/v1/chat/completions\n```';
+      }
       const chunks = text.match(/[\s\S]{1,16}/g) || [];
       let i = 0;
       const timer = setInterval(() => {
