@@ -14,7 +14,7 @@
 'use strict';
 
 /* ---------- constants ---------- */
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 const CREATOR = 'Sukot';
 const DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const LEGACY_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
@@ -1306,6 +1306,20 @@ function boot() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   });
   $('#sidebar-toggle').addEventListener('click', () => $('#sidebar').classList.toggle('hidden'));
+
+  /* لینک‌های خارجی (مثل کانال تلگرام): در اندروید/ویندوز با مرورگر سیستم باز شود */
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[target="_blank"]');
+    if (!a) return;
+    const url = a.getAttribute('href') || '';
+    if (!/^https?:\/\//i.test(url)) return;
+    e.preventDefault();
+    try {
+      if (ENV === 'android' && typeof AndroidAI !== 'undefined' && AndroidAI.openUrl) { AndroidAI.openUrl(url); return; }
+      if (ENV === 'electron' && window.electronAPI && window.electronAPI.openExternal) { window.electronAPI.openExternal(url); return; }
+    } catch (err) { /* fallthrough */ }
+    window.open(url, '_blank', 'noopener');
+  });
 
   document.querySelectorAll('.suggestion').forEach((b) => b.addEventListener('click', () => send(b.textContent)));
 
