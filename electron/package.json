@@ -5,6 +5,10 @@
   "main": "main.js",
   "author": "sukot5104-lang",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sukot5104-lang/sukot-ai-bot.git"
+  },
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win nsis portable --publish never"
