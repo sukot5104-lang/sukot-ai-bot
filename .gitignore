@@ -1,0 +1,22 @@
+# secrets & local config
+config.js
+*.token
+.env
+
+# node
+node_modules/
+package-lock.json
+
+# build outputs
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+electron/node_modules/
+electron/dist/
+electron/web/
+
+# misc
+.DS_Store
+Thumbs.db
+*.log

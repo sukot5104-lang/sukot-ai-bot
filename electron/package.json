@@ -1,0 +1,48 @@
+{
+  "name": "sukot-ai-bot",
+  "version": "1.0.0",
+  "description": "ربات گفتگوی هوشمند فارسی — Sukot AI Bot (Cloudflare Workers AI)",
+  "main": "main.js",
+  "author": "sukot5104-lang",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.sukot.aibot",
+    "productName": "Sukot AI Bot",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "web/**/*"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "Sukot-AI-Bot-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "Sukot-AI-Bot-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "Sukot-AI-Bot-Portable-${version}.exe"
+    }
+  }
+}
