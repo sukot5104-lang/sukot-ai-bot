@@ -30,6 +30,7 @@ http.createServer((req, res) => {
       let grounded = false;
       let toolRound = false;
       let contRound = false;
+      let model = '';
       try {
         const j = JSON.parse(body);
         const users = (j.messages || []).filter((m) => m.role === 'user');
@@ -37,7 +38,34 @@ http.createServer((req, res) => {
         grounded = (j.messages || []).some((m) => m.role === 'system' && m.content.includes('نتایج تازهٔ جستجوی وب'));
         toolRound = (j.messages || []).some((m) => m.role === 'user' && m.content.includes('نتیجهٔ ابزار'));
         contRound = (j.messages || []).some((m) => m.role === 'user' && m.content.includes('ناقص بریده شد'));
+        model = j.model || '';
       } catch (e) {}
+
+      /* شبیه‌سازی دقیق خطای مدل‌های مردهٔ کلادفلر (همان چیزی که کاربر واقعی می‌بیند) */
+      const DEAD = ['@cf/meta/llama-3.1-8b-instruct', '@cf/qwen/qwen1.5-14b-chat-awq', '@cf/meta/llama-3.3-70b-instruct', '@cf/qwen/qwen3-30b-a3b', '@cf/google/gemma-3-12b-it', '@cf/meta/llama-3.2-11b-vision-instruct'];
+      if (DEAD.indexOf(model) !== -1 || /dead-model/.test(model)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          result: null, success: false,
+          errors: [{ code: 5035, message: 'AiError: Model ' + model + ' is not available on the Workers Free plan: Model ' + model + ' is not available on the Workers Free plan. Upgrade to access this model.' }]
+        }));
+        return;
+      }
+
+      if (/فکر عمیق/.test(userMsg)) {
+        /* شبیه‌سازی مدل استدلالی gpt-oss: اول فکر در فیلد reasoning، بعد محتوا */
+        const chunks2 = [{ reasoning: 'The user wants a deep answer.' }, { reasoning: 'Let me think more.' }, { content: '' }, { content: 'پاسخ نهایی پس از **تفکر عمیق** آمده است.' }];
+        let k = 0;
+        res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+        const t2 = setInterval(() => {
+          if (k >= chunks2.length) { clearInterval(t2); res.write('data: [DONE]\n\n'); res.end(); return; }
+          const payload = { id: 'mock', model: 'mock', choices: [{ index: 0, delta: chunks2[k++], finish_reason: null }] };
+          res.write('data: ' + JSON.stringify(payload) + '\n\n');
+        }, 500);
+        res.on('close', () => clearInterval(t2));
+        return;
+      }
+
       res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
       let text;
       if (!toolRound && !contRound && /بازی مار/.test(userMsg)) {
