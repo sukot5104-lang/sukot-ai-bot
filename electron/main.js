@@ -26,7 +26,7 @@ function createWindow() {
     show: false,
     backgroundColor: '#12091f',
     autoHideMenuBar: true,
-    title: 'سوکات AI — دستیار هوشمند فارسی',
+    title: 'سوکوت AI — دستیار هوشمند فارسی',
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -98,4 +98,19 @@ ipcMain.on('ai:cancel', (event, id) => {
 /* open a link in the system browser (renderer asks via preload) */
 ipcMain.on('open-external', (event, url) => {
   if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
+});
+
+/* ---- v1.5.0: save a generated image (data URL) into Downloads ---- */
+ipcMain.handle('save-image', async (event, { name, dataUrl }) => {
+  try {
+    const b64 = String(dataUrl || '').split(',')[1] || '';
+    if (!b64) return '';
+    const buf = Buffer.from(b64, 'base64');
+    const dir = app.getPath('downloads');
+    const file = path.join(dir, name || ('sukot-image-' + Date.now() + '.jpg'));
+    fs.writeFileSync(file, buf);
+    return file;
+  } catch (e) {
+    return '';
+  }
 });

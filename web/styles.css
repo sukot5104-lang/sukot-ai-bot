@@ -489,6 +489,77 @@ body{
 ::-webkit-scrollbar-thumb{background:#31215a;border-radius:8px}
 ::-webkit-scrollbar-thumb:hover{background:#4a338a}
 
+/* ===== v1.5.0: تب‌بندی تنظیمات ===== */
+.tab-bar{
+  display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 14px;
+  border-bottom:1px solid var(--border-soft);padding-bottom:10px;
+}
+.tab-btn{
+  flex:1;min-width:88px;padding:9px 6px;border-radius:11px;
+  background:rgba(13,7,25,.6);border:1px solid var(--border);color:var(--muted);
+  font-family:inherit;font-size:12px;cursor:pointer;transition:all .16s ease;
+}
+.tab-btn:hover{color:var(--text);border-color:rgba(168,85,247,.5)}
+.tab-btn.active{background:var(--grad);color:#fff;border:none;font-weight:700;box-shadow:var(--glow)}
+.sub-box{
+  border:1px solid var(--border-soft);border-radius:14px;
+  padding:12px 12px 0;margin-bottom:14px;background:rgba(13,7,25,.35);
+}
+.sub-title{font-size:12.5px;font-weight:bold;color:var(--accent);margin-bottom:10px}
+
+/* ===== v1.5.0: حالت ساخت عکس ===== */
+.web-btn.mode-img{
+  background:var(--grad);color:#fff;border:none;box-shadow:var(--glow);
+}
+.web-btn.mode-img:hover{filter:brightness(1.12)}
+.gen-img-wrap{margin:2px 0 4px}
+.gen-img{
+  max-width:min(100%,430px);width:100%;border-radius:14px;
+  border:1px solid var(--border-soft);display:block;
+  box-shadow:0 6px 24px rgba(0,0,0,.4);background:#0d0722;
+}
+.gen-caption{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.9}
+.img-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.img-actions button{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(168,85,247,.14);border:1px solid rgba(168,85,247,.4);
+  color:var(--text);font-family:inherit;font-size:11.5px;padding:6px 12px;border-radius:10px;
+  cursor:pointer;transition:all .16s ease;
+}
+.img-actions button:hover{background:rgba(168,85,247,.3);border-color:var(--accent)}
+.img-actions button .ic{width:14px;height:14px;color:#d8b4fe}
+.gen-badge{
+  display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:#e9d5ff;
+  background:rgba(168,85,247,.2);border:1px solid rgba(168,85,247,.45);
+  border-radius:99px;padding:3px 11px;margin-bottom:4px;
+}
+.gen-badge .ic{width:12px;height:12px;color:#d8b4fe}
+.img-loading{
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+  padding:24px 10px;text-align:center;color:var(--muted);font-size:13px;line-height:2;
+}
+.img-loading .brush{
+  width:36px;height:36px;color:var(--pink);animation:spinGlobe 2.4s linear infinite;
+}
+
+/* ===== v1.5.0: دکمهٔ اجرای بازی روی بلوک کد ===== */
+.code-run .ic{color:#f9a8d4}
+
+/* ===== v1.5.0: اجرای زندهٔ بازی/کد ===== */
+.run-backdrop{
+  position:fixed;inset:0;z-index:90;background:rgba(6,3,12,.94);
+  display:flex;flex-direction:column;padding:10px;gap:8px;
+}
+.run-backdrop.hidden{display:none}
+.run-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.run-title{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:bold;color:var(--text)}
+.run-title .ic{color:var(--pink)}
+.run-actions{display:flex;gap:8px}
+#run-frame{
+  flex:1;width:100%;border:1px solid var(--border-soft);
+  border-radius:14px;background:#ffffff;
+}
+
 /* ===== responsive ===== */
 @media (max-width:760px){
   #sidebar{position:fixed;inset-inline-start:0;top:0;bottom:0;z-index:40;box-shadow:10px 0 40px rgba(0,0,0,.55)}

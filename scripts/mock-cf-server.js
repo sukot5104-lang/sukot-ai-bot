@@ -22,6 +22,17 @@ http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
+  /* --- v1.5.0: fake image generation (run/flux-…) --- */
+  if (req.method === 'POST' && url.pathname.includes('/run/')) {
+    let ib = '';
+    req.on('data', (d) => { ib += d; });
+    req.on('end', () => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ result: { image: 'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAFElEQVR4nGP8z8DAwMDAxAADCAYAHW0C7gAAAABJRU5ErkJggg==' } }));
+    });
+    return;
+  }
+
   /* --- fake chat completions --- */
   if (req.method === 'POST' && url.pathname.includes('/chat/completions')) {
     let body = '';
@@ -94,7 +105,7 @@ http.createServer((req, res) => {
         text =
         (imgCount > 0 ? '**عکس را دیدم! ✓** تعداد تصاویر پیوست: ' + imgCount + ' — مدل بینا درست کار می‌کند\n\n' : '') +
         (fileEcho ? '**فایل متنی را خواندم! ✓** نام فایل: «' + fileEcho + '»\n\n' : '') +
-        'سلام! من **سوکات** هستم و این پیام از **سرور ماک** آمده است. یک كلمهٔ عربی تست: سال ﻱ ۱۴۰٤\n\n' +
+        'سلام! من **سوکوت** هستم و این پیام از **سرور ماک** آمده است. یک كلمهٔ عربی تست: سال ﻱ ۱۴۰۴\n\n' +
         (grounded ? 'پاسخ بر اساس **نتایج جستجوی وب** داده شد و منبع دارد:\n\n**منابع:**\n- [1] [Mock News](https://example.com/news)\n\n' : '') +
         'یک نمونه کد:\n\n```html\n<div class="salam">درود بر Sukot</div>\n```\n\n' +
         '- ترارسانی (streaming) به درستی کار می‌کند\n' +

@@ -2,15 +2,19 @@ package com.sukot.aibot;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ContentValues;
 import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
+import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -21,6 +25,8 @@ import android.webkit.WebViewClient;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -325,6 +331,46 @@ public class MainActivity extends Activity {
         public void stopSpeak() {
             if (ttsReady && tts != null) {
                 try { tts.stop(); } catch (Exception ignored) { }
+            }
+        }
+
+        /* ---- v1.5.0: ذخیرهٔ عکس ساخته‌شده (data URL) در گالری/حافظه ---- */
+        @JavascriptInterface
+        public String saveImage(final String name, final String dataUrl) {
+            try {
+                if (dataUrl == null || !dataUrl.startsWith("data:image/")) return "";
+                int comma = dataUrl.indexOf(',');
+                if (comma < 0) return "";
+                final byte[] bytes = Base64.decode(dataUrl.substring(comma + 1), Base64.DEFAULT);
+                final String fname = (name == null || name.trim().isEmpty())
+                        ? ("sukot-image-" + System.currentTimeMillis() + ".jpg") : name;
+                if (Build.VERSION.SDK_INT >= 29) {
+                    ContentValues cv = new ContentValues();
+                    cv.put(MediaStore.Images.Media.DISPLAY_NAME, fname);
+                    cv.put(MediaStore.Images.Media.MIME_TYPE,
+                            dataUrl.startsWith("data:image/png") ? "image/png" : "image/jpeg");
+                    cv.put(MediaStore.Images.Media.RELATIVE_PATH,
+                            Environment.DIRECTORY_PICTURES + "/Sukot");
+                    Uri uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv);
+                    if (uri == null) return "";
+                    OutputStream os = getContentResolver().openOutputStream(uri);
+                    if (os == null) return "";
+                    os.write(bytes);
+                    os.flush();
+                    os.close();
+                    return "Pictures/Sukot/" + fname;
+                } else {
+                    File dir = new File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "Sukot");
+                    if (!dir.exists()) dir.mkdirs();
+                    File f = new File(dir, fname);
+                    FileOutputStream fo = new FileOutputStream(f);
+                    fo.write(bytes);
+                    fo.flush();
+                    fo.close();
+                    return f.getAbsolutePath();
+                }
+            } catch (Exception e) {
+                return "";
             }
         }
     }

@@ -1,6 +1,6 @@
 {
   "name": "sukot-ai-bot",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "ربات گفتگوی هوشمند فارسی — Sukot AI Bot (Cloudflare Workers AI)",
   "main": "main.js",
   "author": "sukot5104-lang",
@@ -31,8 +31,18 @@
     ],
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.png",
       "artifactName": "Sukot-AI-Bot-${version}-${arch}.${ext}"
