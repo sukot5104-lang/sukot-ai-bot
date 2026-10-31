@@ -1,20 +1,21 @@
 /* ============================================================
-   سوکات AI (Sukot AI) v1.3.1 — Persian AI chatbot
-   powered by Cloudflare Workers AI · Z.ai GLM · OpenRouter
+   سوکوت AI (Sukot AI) v1.5.0 — Persian AI chatbot
+   powered by Cloudflare Workers AI · Pollinations · Groq · Gemini · OpenRouter
 
-   v1.3.1 highlights
-   - رفع کامل ارورها: حذف ۶ مدل مردهٔ کلادفلر + افزودن ۸ مدل سالم تأییدشده (GLM 4.7، Gemma 4، Nemotron 120B و…)
-   - فالبک خودکار: اگر مدلی در دسترس نباشد، سوکات خودش با مدل پایدار جواب می‌دهد و چراغ سبز می‌شود
-   - مدل غول‌پیکر رایگان ۵۵۰B روی OpenRouter (Nemotron 3 Ultra)
-   - حالت عامل (انجام کار): ابزار جستجو، ماشین‌حساب، زمان، خواندن صفحه
-   - رفع کپی نصفه‌کارهٔ کدهای بلند: کپی از متن خام + ادامهٔ خودکار پاسخ بریده
-   - قیمت لحظه‌ای دقیق دلار/یورو/بیت‌کوین از API مستقیم ارز و کریپتو
-   - صدای بهتر: تشخیص صدای فارسی، خواندن تکه‌تکه، راهنمای نصب صدا، تست صدا
+   v1.5.0 highlights
+   - ساخت عکس مثل ChatGPT: دکمهٔ عکس کنار نوشتار → Flux روی کلادفلر یا
+     موتور رایگان پولینیشن (بدون کلید و بدون ثبت‌نام، در همهٔ پلتفرم‌ها) + ذخیرهٔ عکس
+   - استودیوی بازی‌سازی: دستیار مخصوص بازی + دکمهٔ «اجرای بازی» روی بلوک کد —
+     بازی ساخته‌شده همان‌جا در محیط ایزتهٔ امن (sandbox iframe) اجرا می‌شود
+   - سرویس‌های رایگان بدون کارت بانکی: پولینیشن (بدون کلید)، Groq، Google Gemini
+   - تنظیمات ۵ تب شد: اتصال/API خارجی · ساخت عکس · جستجو و ابزار · صدا · پاسخ و شخصیت
+   - بخش مخصوص API خارجی (هر سرویس سازگار با OpenAI) + دستیار بازی‌سازی + مدل‌های تازه
+   - املای درست نام: «سوکوت»
    ============================================================ */
 'use strict';
 
 /* ---------- constants ---------- */
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.5.0';
 const CREATOR = 'Sukot';
 const DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const LEGACY_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
@@ -66,7 +67,7 @@ function fixPersian(t) {
 
 /* ---------- personality / دستیارهای تخصصی ---------- */
 const BASE_IDENTITY =
-  'تو «سوکات» هستی؛ دستیار هوش مصنوعی فارسی‌زبانِ برنامهٔ «سوکات AI».\n' +
+  'تو «سوکوت» هستی؛ دستیار هوش مصنوعی فارسی‌زبانِ برنامهٔ «سوکوت AI».\n' +
   '- سازنده و طراح تو «' + CREATOR + '» است. اگر پرسیدند چه کسی تو را ساخته، با افتخار بگو: «سازندهٔ من ' + CREATOR + ' است.»\n' +
   '- همیشه فارسیِ روان پاسخ بده و همیشه از حروف فارسی «ی» و «ک» استفاده کن؛ هرگز حروف عربی «ي» و «ك» را ننویس.\n' +
   '- هرگز دادهٔ خام فنی (JSON، کد خطا، SSE و…) را نشان نده؛ فقط پاسخ نهایی و تمیز بنویس.\n' +
@@ -126,9 +127,23 @@ const CATEGORIES = {
       '- هرگز فهرست گلوله‌ای، جدول، کد و علامت‌های markdown ننویس؛ فقط متن سادهٔ گفتاری.\n' +
       '- پاسخ ۲ تا ۶ جمله باشد، مگر این که کاربر توضیح مفصل بخواهد.\n' +
       '- از نشانی اینترنتی و نمادهای خاص پرهیز کن چون با صدا خوانده می‌شوند.'
+  },
+  games: {
+    name: 'بازی‌سازی',
+    icon: 'i-gamepad',
+    desc: 'بازی کامل بساز و همین‌جا اجرا کن',
+    model: '@cf/qwen/qwen2.5-coder-32b-instruct',
+    temp: 0.6, style: 'detailed', web: 'off', autoSpeak: false,
+    sys: BASE_IDENTITY +
+      '\n- تو استودیوی بازی‌سازی سوکوت هستی؛ مهندس ارشد بازی‌های HTML5.\n' +
+      '- همیشه بازی را به‌صورت «یک فایل کامل HTML» داخل بلوک ```html بده تا دکمهٔ «اجرای بازی» فعال شود و کاربر همان‌جا بازی کند.\n' +
+      '- بازی کامل باشد: صفحهٔ شروع، گیم‌پلی روان با requestAnimationFrame، کنترل با کیبورد و لمس/موس، امتیاز، صفحهٔ باخت و دکمهٔ شروع دوباره.\n' +
+      '- گرافیک را با Canvas و اشکال رنگی بساز؛ هیچ فایل خارجی، عکس یا CDN لازم نیست — همه‌چیز داخل همان یک فایل.\n' +
+      '- رابط بازی فارسی باشد؛ بعد از کد، کنترل‌های بازی را در ۳-۴ خط توضیح بده.\n' +
+      '- اگر خواستند، صدا (WebAudio)، ذخیرهٔ رکورد (localStorage) یا حالت دو‌نفره هم اضافه کن.'
   }
 };
-const CAT_ORDER = ['general', 'code', 'study', 'voice'];
+const CAT_ORDER = ['general', 'code', 'study', 'games', 'voice'];
 
 const STYLES = {
   short: { desc: 'سبک پاسخ: خیلی کوتاه و مستقیم — فقط چند جملهٔ ضروری.', max_tokens: 900 },
@@ -149,13 +164,34 @@ const MODEL_NAMES = {
   '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b': 'DeepSeek R1 32B',
   '@cf/mistralai/mistral-small-3.1-24b-instruct': 'Mistral Small 24B',
   '@cf/zai-org/glm-4.7-flash': 'GLM 4.7 Flash — Z.ai',
+  '@cf/zai-org/glm-5.3': 'GLM 5.3 — غول ۱M توکنی (پلن پولی)',
+  '@cf/zai-org/glm-5.3-flash': 'GLM 5.3 Flash — ۱M + بینایی (پلن پولی)',
+  '@cf/zai-org/glm-5.2': 'GLM 5.2 — نسل ۵ (پلن پولی)',
+  '@cf/moonshotai/kimi-k2.6': 'Kimi K2.6 — خانوادهٔ ۱T + بینایی (پلن پولی)',
+  '@cf/moonshotai/kimi-k2.7-code': 'Kimi K2.7 Code — غول کدنویسی (پلن پولی)',
+  '@cf/deepseek-ai/deepseek-v4-pro-0813': 'DeepSeek V4 Pro — غول استدلال (پلن پولی)',
+  '@cf/deepseek-ai/deepseek-v4.1-flash-1017': 'DeepSeek V4.1 Flash — ۱M + بینایی (پلن پولی)',
   '@cf/google/gemma-4-26b-a4b-it': 'Gemma 4 26B',
+  '@cf/aisingapore/gemma-sea-lion-v4-27b-it': 'SEA-LION 27B — چندزبانهٔ قوی',
+  '@cf/utter-project/eurollm-9b-it': 'EuroLLM 9B — چندزبانهٔ سبک',
   '@cf/meta/llama-3.1-8b-instruct-fast': 'Llama 3.1 8B Fast',
   '@cf/meta/llama-3.1-8b-instruct-fp8': 'Llama 3.1 8B',
   '@cf/meta/llama-3.2-3b-instruct': 'Llama 3.2 3B',
   '@cf/mistral/mistral-7b-instruct-v0.1': 'Mistral 7B',
   '@cf/ibm-granite/granite-4.0-h-micro': 'Granite 4.0 Micro — IBM'
 };
+
+/* مدل‌های دارای بینایی — تست‌شده با درخواست تصویر واقعی روی حساب کاربر */
+const VISION_MODELS = [
+  '@cf/meta/llama-4-scout-17b-16e-instruct',
+  '@cf/qwen/qwen3.8-27b',
+  '@cf/zai-org/glm-5.3-flash',
+  '@cf/moonshotai/kimi-k2.6',
+  '@cf/moonshotai/kimi-k2.7-code',
+  '@cf/deepseek-ai/deepseek-v4.1-flash-1017'
+];
+const DEFAULT_VISION_MODEL = '@cf/meta/llama-4-scout-17b-16e-instruct';
+function isVision(id) { return VISION_MODELS.indexOf(id) !== -1; }
 
 /* مدل‌های مردهٔ قدیمی → جایگزین سالم (مهاجرت خودکار تنظیمات ذخیره‌شده) */
 const DEAD_MODELS = {
@@ -183,6 +219,40 @@ const PROVIDERS = {
     needsAccount: true,
     endpoint: (s) => 'https://api.cloudflare.com/client/v4/accounts/' + encodeURIComponent((s.account || '').trim()) + '/ai/v1/chat/completions',
     models: MODEL_NAMES
+  },
+  pollinations: {
+    name: 'پولینیشن (رایگان بدون کلید)',
+    tokenUrl: 'هیچ کلیدی لازم نیست — بدون ثبت‌نام کار می‌کند',
+    needsAccount: false,
+    needsToken: false,
+    endpoint: () => 'https://text.pollinations.ai/openai',
+    models: {
+      'openai-fast': 'OpenAI-Fast — GPT-OSS 20B (رایگان، بدون ثبت‌نام)'
+    }
+  },
+  groq: {
+    name: 'Groq — رایگانِ بدون کارت بانکی',
+    tokenUrl: 'console.groq.com/keys — ثبت‌نام با ایمیل، بدون کارت',
+    needsAccount: false,
+    endpoint: () => 'https://api.groq.com/openai/v1/chat/completions',
+    models: {
+      'gpt-oss-120b': 'GPT-OSS 120B — قوی‌ترین رایگان Groq (پیشنهادی)',
+      'gpt-oss-20b': 'GPT-OSS 20B — سبک و خیلی سریع',
+      'llama-3.3-70b-versatile': 'Llama 3.3 70B Versatile',
+      'qwen/qwen3-32b': 'Qwen 3 32B'
+    }
+  },
+  gemini: {
+    name: 'Google Gemini — کلید رایگان (بدون کارت)',
+    tokenUrl: 'aistudio.google.com/apikey — با اکانت گوگل، بدون کارت بانکی',
+    needsAccount: false,
+    endpoint: () => 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    models: {
+      'gemini-3.8-flash': 'Gemini 3.8 Flash — رایگان و هوشمند (پیشنهادی)',
+      'gemini-3.6-flash': 'Gemini 3.6 Flash',
+      'gemini-2.5-flash': 'Gemini 2.5 Flash',
+      'gemini-2.5-flash-lite': 'Gemini 2.5 Flash-Lite'
+    }
   },
   zai: {
     name: 'Z.ai — GLM (مغز غول‌پیکر)',
@@ -228,7 +298,8 @@ function loadSettings() {
     model: DEFAULT_MODEL, modelCustom: '',
     sys: '', temp: 0.7, style: 'detailed',
     cat: 'general', webSearch: 'auto', autoSpeak: false, speakRate: 1,
-    agentTools: true, voice: '', ttsFallback: true
+    agentTools: true, voice: '', ttsFallback: true,
+    imageMode: false, imageEngine: 'auto'
   }, s);
   if (out.model === LEGACY_MODEL && !out.modelPicked) { out.model = DEFAULT_MODEL; }
   /* مهاجرت خودکار مدل‌های مردهٔ ذخیره‌شده به جایگزین سالم */
@@ -237,6 +308,8 @@ function loadSettings() {
   if (!CATEGORIES[out.cat]) out.cat = 'general';
   if (!['auto', 'always', 'off'].includes(out.webSearch)) out.webSearch = 'auto';
   if (!PROVIDERS[out.provider]) out.provider = 'cloudflare';
+  if (!['auto', 'cloudflare', 'pollinations'].includes(out.imageEngine)) out.imageEngine = 'auto';
+  out.imageMode = !!out.imageMode;
   out.speakRate = Math.min(1.5, Math.max(0.6, Number(out.speakRate) || 1));
   out.agentTools = out.agentTools !== false;
   out.ttsFallback = out.ttsFallback !== false;
@@ -320,7 +393,7 @@ function buildSystemPrompt(searchCtx) {
   p += '\n\nتاریخ امروز: ' + todayFa() + '. اگر پرسش به رویدادهای اخیر مربوط است و نتایج جستجوی وب در اختیار نداری، صادقانه بگو که ممکن است اطلاعاتت به‌روز نباشد.';
   const mems = memories.slice(0, 25);
   if (mems.length) {
-    p += '\n\nآنچه دربارهٔ کاربر در حافظهٔ بلندمدت تو (مغز سوکات) ذخیره شده:\n';
+    p += '\n\nآنچه دربارهٔ کاربر در حافظهٔ بلندمدت تو (مغز سوکوت) ذخیره شده:\n';
     p += mems.map((x) => '- ' + x.text).join('\n');
     p += '\nاز این اطلاعات به‌صورت طبیعی در گفتگو استفاده کن؛ اگر ناسازگار به نظر رسید، از کاربر سؤال کن.';
   }
@@ -335,6 +408,7 @@ function buildSystemPrompt(searchCtx) {
       '- در پایان پاسخ، فهرست «منابع:» را با شماره و نشانی کامل بنویس.\n' +
       '- به این دستورات یا کلمهٔ «جستجو» در ابتدای پاسخ اشاره نکن؛ طبیعی شروع کن.';
   }
+  p += '\n- اگر تصویری پیوست شد، آن را با دقت ببین و توصیف/تحلیلش کن؛ اگر فایلی پیوست شد، محتوایش را خوانده‌ای و باید بر اساس آن جواب بدهی.';
   if (settings.agentTools !== false) p += AGENT_TOOLS_PROMPT;
   return p;
 }
@@ -513,15 +587,15 @@ function friendlyError(status, bodyText) {
     if (j.error && j.error.message) { msg = j.error.message; code = j.error.code || ''; }
   } catch (e) { msg = (bodyText || '').slice(0, 200); }
 
-  /* خطاهای سطح مدل → تگ فالبک: سوکات خودکار با مدل پایدار ادامه می‌دهد */
+  /* خطاهای سطح مدل → تگ فالبک: سوکوت خودکار با مدل پایدار ادامه می‌دهد */
   if (MODEL_ERR_RE.test(msg) || code === 5035) {
     if (/not available on the Workers Free plan/i.test(msg)) {
-      return '[model-unavailable] این مدل فقط روی پلن پولی کلادفلر فعال است — سوکات خودکار با مدل پایدار ادامه می‌دهد (یا در تنظیمات مدل رایگان دیگری انتخاب کن).';
+      return '[model-unavailable] این مدل فقط روی پلن پولی کلادفلر فعال است — سوکوت خودکار با مدل پایدار ادامه می‌دهد (یا در تنظیمات مدل رایگان دیگری انتخاب کن).';
     }
     if (/deprecated|No such model/i.test(msg)) {
-      return '[model-unavailable] این مدل بازنشسته یا حذف شده است — سوکات خودکار با مدل پایدار جایگزین ادامه می‌دهد.';
+      return '[model-unavailable] این مدل بازنشسته یا حذف شده است — سوکوت خودکار با مدل پایدار جایگزین ادامه می‌دهد.';
     }
-    return '[model-unavailable] این مدل روی این حساب در دسترس نیست (نیاز به تأیید لایسنس در پنل کلادفلر دارد) — سوکات خودکار با مدل پایدار ادامه می‌دهد.';
+    return '[model-unavailable] این مدل روی این حساب در دسترس نیست (نیاز به تأیید لایسنس در پنل کلادفلر دارد) — سوکوت خودکار با مدل پایدار ادامه می‌دهد.';
   }
 
   if (code === 9109 || /location/i.test(msg)) {
@@ -798,7 +872,12 @@ function shouldSearch(text) {
 
 /* ---------- one-shot request used by "test connection" ---------- */
 function testConnection(cb) {
+  const p0 = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
   const url = apiUrl();
+  if (!url) { cb(false, 'آدرس API خالی است — در تب «اتصال» سرویس یا آدرس خارجی را تنظیم کن.'); return; }
+  const needTok = p0.needsToken !== false;
+  const needAcct = p0.needsAccount && !(settings.base || '').trim();
+  if ((needTok && !settings.token.trim()) || (needAcct && !settings.account.trim())) { cb(false, 'ابتدا توکن (و برای کلادفلر Account ID) را در تب «اتصال» وارد کن.'); return; }
   const tryModel = (model, retried, note) => {
     const body = {
       model: model, stream: true, max_tokens: 60,
@@ -837,7 +916,10 @@ function apiUrl() {
   return (s.modelCustom || '').trim() ? '' : url;
 }
 function apiHeaders() {
-  return { 'Authorization': 'Bearer ' + settings.token.trim(), 'Content-Type': 'application/json' };
+  const h = { 'Content-Type': 'application/json' };
+  /* پولینیشن بدون کلید کار می‌کند — هدر احراز فقط وقتی توکن هست */
+  if (settings.token && settings.token.trim()) h['Authorization'] = 'Bearer ' + settings.token.trim();
+  return h;
 }
 function chosenModel() {
   return settings.model === 'custom' ? (settings.modelCustom || '').trim() : settings.model;
@@ -879,10 +961,15 @@ function renderMD(text) {
     const rawCode = unescCode(code).replace(/\n$/, '');
     const cid = codeHash(rawCode);
     codeStore.set(cid, rawCode);
+    const runnable = isRunnableCode(lang, rawCode);
+    const runLabel = /<canvas|<html|<!DOCTYPE/i.test(rawCode) ? 'اجرای بازی' : 'اجرای کد';
     blocks.push(
       '<div class="codeblock" data-cid="' + cid + '"><div class="code-bar">' +
       '<span class="lang" dir="ltr">' + esc(label) + '</span>' +
+      '<span style="display:inline-flex;gap:6px">' +
+      (runnable ? '<button type="button" class="code-copy code-run"><svg class="ic ic-sm"><use href="#i-play"/></svg><span>' + runLabel + '</span></button>' : '') +
       '<button type="button" class="code-copy"><svg class="ic ic-sm"><use href="#i-copy"/></svg><span>کپی کد</span></button>' +
+      '</span>' +
       '</div><pre><code dir="ltr">' + code.replace(/\n$/, '') + '</code></pre></div>'
     );
     return '\u0000B' + i + '\u0000';
@@ -914,6 +1001,42 @@ function renderMD(text) {
   closeList();
   html = html.replace(/\u0000B(\d+)\u0000/g, (m, i) => blocks[+i]);
   return html;
+}
+
+/* — بازی/کد قابل اجرا؟ (استودیوی بازی‌سازی v1.5.0) — */
+function isRunnableCode(lang, rawCode) {
+  if (/^(html|htm)$/i.test(String(lang || ''))) return true;
+  if (/^(js|javascript)$/i.test(String(lang || ''))) return true;
+  return /<html[\s>]|<!DOCTYPE|<canvas[\s>]|<body[\s>]/i.test(String(rawCode || ''));
+}
+function prepareRunHTML(code, lang) {
+  if (/^(html|htm)$/i.test(String(lang || '')) || /<html[\s>]|<!DOCTYPE/i.test(code)) {
+    let h = code;
+    if (!/<meta[^>]+viewport/i.test(h)) {
+      if (/<head[^>]*>/i.test(h)) h = h.replace(/<head[^>]*>/i, (m) => m + '\n<meta name="viewport" content="width=device-width, initial-scale=1">');
+      else h = '<meta name="viewport" content="width=device-width, initial-scale=1">\n' + h;
+    }
+    return h;
+  }
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<style>html,body{margin:0;background:#0c0716;color:#f0eaf9;font-family:monospace;padding:10px;white-space:pre-wrap}</style></head><body>' +
+    '<div id="sukot-run-err" style="color:#ff8fa0;white-space:pre-wrap"></div>' +
+    '<scr' + 'ipt>window.onerror=function(m,s,l){var e=document.getElementById("sukot-run-err");if(e)e.textContent+="خطا: "+m+" (خط "+l+")\\n";return false;};</scr' + 'ipt>' +
+    '<scr' + 'ipt>' + code + '</scr' + 'ipt></body></html>';
+}
+let runActiveLang = '';
+function runCodeFromBlock(block) {
+  const cid = block.dataset.cid;
+  const raw = (cid && codeStore.has(cid)) ? codeStore.get(cid) : unescCode(block.querySelector('code').innerText);
+  const langEl = block.querySelector('.lang');
+  const lang = langEl ? langEl.textContent.trim().toLowerCase() : '';
+  runActiveLang = lang;
+  $('#run-frame').srcdoc = prepareRunHTML(raw, lang);
+  $('#run-backdrop').classList.remove('hidden');
+}
+function closeRunOverlay() {
+  $('#run-backdrop').classList.add('hidden');
+  try { $('#run-frame').srcdoc = ''; } catch (e) {}
 }
 
 /* ---------- clipboard (secure-context + legacy fallback for WebView file://) ---------- */
@@ -1074,7 +1197,7 @@ function speak(raw, btn) {
 }
 /* تست صدا در تنظیمات */
 function testSpeak() {
-  speak('سلام! من سوکات هستم. صدای من کار می‌کند؛ فارسی برایم آسان است.', $('#btn-tts-test'));
+  speak('سلام! من سوکوت هستم. صدای من کار می‌کند؛ فارسی برایم آسان است.', $('#btn-tts-test'));
 }
 function refreshVoiceList() {
   const sel = $('#set-voice');
@@ -1182,7 +1305,8 @@ function errorHTML(msg) {
       '<p style="color:var(--err);display:flex;align-items:center;gap:8px;margin:0 0 8px">' +
       '<svg class="ic ic-sm" style="color:var(--err)"><use href="#i-alert"/></svg><span>' + esc(msg) + '</span></p>' +
       '<p style="margin:4px 0;font-weight:bold">نسخهٔ وب به‌دلیل سیاست امنیتی مرورگرها (CORS) نمی‌تواند مستقیماً به کلادفلر وصل شود. دو راه‌حل:</p>' +
-      '<ol style="margin:4px 0;padding-right:18px"><li>اپ <b>اندروید</b> یا <b>ویندوز</b> سوکات را نصب کن — بدون هیچ محدودیتی مستقیم وصل می‌شود (لینک دانلود: بخش «درباره» یا کانال تلگرام).</li>' +
+      '<ol style="margin:4px 0;padding-right:18px"><li>اپ <b>اندروید</b> یا <b>ویندوز</b> سوکوت را نصب کن — بدون هیچ محدودیتی مستقیم وصل می‌شود (لینک دانلود: بخش «درباره» یا کانال تلگرام).</li>' +
+      '<li>یا در تنظیمات، سرویس <b>«پولینیشن — رایگان بدون کلید»</b> را انتخاب کن؛ نسخهٔ وب با آن بدون مشکل CORS حرف می‌زند و ساخت عکس هم بدون کلید کار می‌کند.</li>'
       '<li>یا Worker واسط را روی حسابت مستقر کن و آدرسش را در تنظیمات، فیلد «آدرس API» بگذار (فایل <span class="en" dir="ltr">worker/worker.js</span> در مخزن GitHub + راهنمای ۴ مرحله‌ای در README).</li></ol></div>';
   }
   return '<p style="color:var(--err);display:flex;align-items:center;gap:8px">' +
@@ -1204,7 +1328,16 @@ function renderMessages() {
   $('#welcome').classList.toggle('hidden', !empty);
   if (empty) return;
   for (const m of c.msgs) {
-    if (m.r === 'user') addMsgDom('user', '<p>' + esc(m.c) + '</p>');
+    if (m.r === 'user') {
+      const im = (m.imgs || []).map((s) => ({ thumb: s }));
+      const fs = (m.files || []).map((n) => ({ name: n }));
+      addMsgDom('user', userMsgHTML(m.c, im, fs, m.gen));
+    }
+    else if (m.img) {
+      const w = addMsgDom('bot', genImgHTML(m));
+      w.querySelector('.img-save').addEventListener('click', () => saveGeneratedImage(m.img));
+      w.querySelector('.img-open').addEventListener('click', () => openImageSrc(m.img));
+    }
     else {
       const v = fixPersian(stripThink(m.c).text) || '[پاسخی ثبت نشد]';
       const w = addMsgDom('bot', renderMD(v));
@@ -1217,6 +1350,91 @@ function scrollBottom(force) {
   const el = $('#messages');
   const near = el.scrollHeight - el.scrollTop - el.clientHeight < 140;
   if (near || force) el.scrollTop = el.scrollHeight;
+}
+
+/* ---------- پیوست‌ها: آپلود فایل و عکس ---------- */
+let pendingAttach = [];
+const MAX_ATTACH = 4;
+const IMG_API_MAX = 1024;   /* ابعاد تصویری که به مدل می‌رود */
+const IMG_THUMB_MAX = 256;  /* تصویر کوچک ذخیره‌شده در تاریخچه */
+const TEXT_FILE_RE = /\.(txt|md|markdown|json|csv|tsv|log|xml|yml|yaml|html|htm|css|js|mjs|ts|jsx|tsx|py|java|kt|c|h|cpp|cs|php|rb|go|rs|swift|sql|sh|bat|ini|toml|env|svg|srt|vtt)$/i;
+const TEXT_TYPE_RE = /^text\/|json|xml|javascript|typescript|x-sh|csv/i;
+
+function canvasResize(img, max, q) {
+  const scale = Math.min(1, max / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+  return cv.toDataURL('image/jpeg', q);
+}
+
+function processFiles(list) {
+  const files = Array.prototype.slice.call(list || []);
+  for (const f of files) {
+    if (pendingAttach.length >= MAX_ATTACH) { toast('حداکثر ' + MAX_ATTACH + ' پیوست در هر پیام', true); break; }
+    const isImg = /^image\//.test(f.type) && !/svg|gif/i.test(f.type);
+    if (isImg) {
+      const rd = new FileReader();
+      rd.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          pendingAttach.push({ kind: 'image', name: f.name || 'تصویر', api: canvasResize(img, IMG_API_MAX, 0.85), thumb: canvasResize(img, IMG_THUMB_MAX, 0.72) });
+          renderAttachBar();
+          toast('عکس پیوست شد — مدل بینا خودکار انتخاب می‌شود');
+        };
+        img.onerror = () => toast('تصویر «' + f.name + '» خوانده نشد', true);
+        img.src = rd.result;
+      };
+      rd.readAsDataURL(f);
+    } else if (TEXT_FILE_RE.test(f.name || '') || TEXT_TYPE_RE.test(f.type || '')) {
+      if (f.size > 400 * 1024) { toast('فایل «' + f.name + '» بزرگ‌تر از ۴۰۰KB است', true); continue; }
+      const rd = new FileReader();
+      rd.onload = () => {
+        pendingAttach.push({ kind: 'file', name: f.name, text: String(rd.result).slice(0, 60000) });
+        renderAttachBar();
+        toast('فایل پیوست شد — محتوایش برای سوکوت خوانده می‌شود');
+      };
+      rd.readAsText(f);
+    } else {
+      toast('فرمت «' + (f.name || f.type) + '» پشتیبانی نمی‌شود — عکس یا فایل متنی بفرست', true);
+    }
+  }
+}
+
+function renderAttachBar() {
+  const bar = $('#attach-bar');
+  if (!bar) return;
+  if (!pendingAttach.length) { bar.innerHTML = ''; bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  bar.innerHTML = pendingAttach.map((a, i) =>
+    '<span class="attach-chip' + (a.kind === 'image' ? ' is-img' : '') + '">' +
+    (a.kind === 'image'
+      ? '<img src="' + a.thumb + '" alt="">'
+      : '<svg class="ic"><use href="#i-doc"/></svg>') +
+    '<span class="nm">' + esc(a.name) + '</span>' +
+    '<button type="button" data-i="' + i + '" title="حذف پیوست"><svg class="ic ic-sm"><use href="#i-x"/></svg></button>' +
+    '</span>'
+  ).join('');
+  bar.querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => { pendingAttach.splice(+b.dataset.i, 1); renderAttachBar(); });
+  });
+}
+function clearAttach() { pendingAttach = []; renderAttachBar(); }
+
+function userMsgHTML(text, imgAtts, fileAtts, gen) {
+  let h = '';
+  if (gen) h += '<p><span class="gen-badge"><svg class="ic ic-sm"><use href="#i-image"/></svg>درخواست ساخت عکس</span></p>';
+  if (imgAtts && imgAtts.length) {
+    h += '<div class="att-grid">' + imgAtts.map((a) => '<img class="att-img" src="' + (a.thumb || a) + '" alt="تصویر پیوست" loading="lazy">').join('') + '</div>';
+  }
+  if (fileAtts && fileAtts.length) {
+    h += '<div class="att-files">' + fileAtts.map((a) => '<span class="att-file"><svg class="ic ic-sm"><use href="#i-doc"/></svg><span>' + esc(a.name || a) + '</span></span>').join('') + '</div>';
+  }
+  if (text) h += '<p>' + esc(text) + '</p>';
+  return h;
 }
 
 /* ---------- send / stream ---------- */
@@ -1232,7 +1450,12 @@ function buildHistory(c) {
       if (m.r === 'assistant' && (t.indexOf('[خطا]') === 0 || /chat\.completion\.chunk|^\s*data:\s*\{/.test(t))) return false;
       return true;
     })
-    .map((m) => ({ role: m.r === 'user' ? 'user' : 'assistant', content: String(m.c).slice(0, 3000) }));
+    .map((m) => ({
+      role: m.r === 'user' ? 'user' : 'assistant',
+      content: (String(m.c || '') +
+        (m.r === 'user' && m.files && m.files.length ? '\n[فایل‌های پیوست در این نوبت: ' + m.files.join('، ') + ']' : '') +
+        (m.r === 'user' && m.imgs && m.imgs.length ? ' [کاربر ' + m.imgs.length + ' تصویر پیوست کرد]' : '')).slice(0, 3000)
+    }));
   /* long memory window: keep last 24 messages inside a ~30k char budget */
   const win = clean.slice(-24);
   let budget = 30000;
@@ -1261,17 +1484,22 @@ const TOOL_LABELS = { web_search: 'جستجوی وب', calculator: 'ماشین�
 async function send(textRaw) {
   if (sendLock) return;
   const text = (textRaw !== undefined ? textRaw : $('#input').value).trim();
-  if (!text) return;
+  const atts = pendingAttach.slice();
+  if (!text && !atts.length) return;
 
   const p0 = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
+  const needToken = p0.needsToken !== false;
   const needAccount = p0.needsAccount && !(settings.base || '').trim();
-  if (!settings.token.trim() || (needAccount && !settings.account.trim())) { openSettings(); return; }
-  if (!chosenModel()) { openSettings(); return; }
+  if ((needToken && !settings.token.trim()) || (needAccount && !settings.account.trim())) { openSettings(); return; }
+  if (!chosenModel() && p0.needsToken !== false) { openSettings(); return; }
+
+  /* — حالت ساخت عکس: مثل ChatGPT عکس می‌سازد — */
+  if (settings.imageMode) { await sendImage(text); return; }
 
   /* مغز: learn from the user's message */
   const learned = extractMemories(text);
   if (learned > 0) {
-    toast(learned === 1 ? 'یادداشت جدید در مغز سوکات ذخیره شد' : learned + ' یادداشت جدید در مغز سوکات ذخیره شد');
+    toast(learned === 1 ? 'یادداشت جدید در مغز سوکوت ذخیره شد' : learned + ' یادداشت جدید در مغز سوکوت ذخیره شد');
   }
 
   let c = currentChat();
@@ -1279,8 +1507,11 @@ async function send(textRaw) {
   $('#welcome').classList.add('hidden');
   if (c.msgs.length === 0) { c.title = text.slice(0, 32); renderChatList(); }
 
-  c.msgs.push({ r: 'user', c: text });
-  addMsgDom('user', '<p>' + esc(text) + '</p>');
+  const imgAtts = atts.filter((a) => a.kind === 'image');
+  const fileAtts = atts.filter((a) => a.kind === 'file');
+  c.msgs.push({ r: 'user', c: text, imgs: imgAtts.map((a) => a.thumb), files: fileAtts.map((a) => a.name) });
+  addMsgDom('user', userMsgHTML(text, imgAtts, fileAtts));
+  clearAttach();
   $('#input').value = ''; autoGrow();
   saveChats(chats);
   scrollBottom(true);
@@ -1294,6 +1525,24 @@ async function send(textRaw) {
 
   /* پیام‌های محلی این نوبت (تبادل ابزار فقط همین‌جا می‌ماند و ذخیره نمی‌شود) */
   const messages = [{ role: 'system', content: buildSystemPrompt(null) }].concat(buildHistory(c));
+
+  /* — پیوست‌ها: فایل متنی داخل متن + تصویر به‌صورت image_url برای مدل بینا — */
+  let visionNote = null;
+  if (atts.length) {
+    const fileChunks = fileAtts.map((a) => '📎 فایل پیوست «' + a.name + '»:\n' + a.text).join('\n\n');
+    const userText = (text || '') + (fileChunks ? '\n\n' + fileChunks : '');
+    let content = userText;
+    if (imgAtts.length) {
+      if (settings.provider === 'cloudflare' && !isVision(chosenModel())) {
+        settings.model = DEFAULT_VISION_MODEL;
+        saveSettings(settings); refreshStatus();
+        visionNote = 'تصویر فرستادی؛ برای دیدنش خودکار به مدل بینا «' + prettyModel(DEFAULT_VISION_MODEL) + '» سوئیچ کردم.';
+      }
+      content = [{ type: 'text', text: userText }].concat(imgAtts.map((a) => ({ type: 'image_url', image_url: { url: a.api } })));
+    }
+    messages[messages.length - 1] = { role: 'user', content: content };
+    if (visionNote) w.querySelector('.bubble').innerHTML = toolNoteHTML(visionNote);
+  }
 
   /* — جستجوی پیش‌دستانه + قیمت لحظه‌ای دلار/ارز/کریپتو از API مستقیم — */
   let searchResults = null;
@@ -1478,9 +1727,276 @@ function cycleWebMode() {
   toast('جستجوی وب: ' + WEB_STATES[next]);
 }
 
+/* ============================================================
+   v1.5.0: ساخت عکس (مثل ChatGPT) + ارسال one-shot برای همهٔ محیط‌ها
+   ============================================================ */
+function oneShotPost(url, headers, bodyStr, timeoutMs) {
+  /* ارسال POST یک‌باره (بدون SSE) روی پل اندروید/ویندوز — پاسخ کامل برمی‌گردد */
+  return new Promise((resolve, reject) => {
+    const cbId = uid();
+    let buf = '';
+    let settled = false;
+    const finish = (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(tm);
+      pendingStreams.delete(cbId);
+      if (err) {
+        const m = String(err).match(/^\s*(\d{3})\|\|([\s\S]*)$/);
+        reject({ status: m ? +m[1] : 0, body: m ? m[2] : String(err) });
+      } else resolve(buf);
+    };
+    const tm = setTimeout(() => finish('000||پاسخ سرور خیلی طول کشید'), timeoutMs || 90000);
+    pendingStreams.set(cbId, { onDelta: (t) => { buf += t; }, onDone: finish });
+    try {
+      if (ENV === 'android') {
+        if (typeof AndroidAI === 'undefined' || !AndroidAI.request) { finish('000||پل اندروید در دسترس نیست'); return; }
+        AndroidAI.request(cbId, url, JSON.stringify(headers), bodyStr);
+      } else if (ENV === 'electron') {
+        if (!window.electronAPI) { finish('000||پل ویندوز در دسترس نیست'); return; }
+        let obj = bodyStr;
+        try { obj = JSON.parse(bodyStr); } catch (e) {}
+        window.electronAPI.request({ id: cbId, url, headers, body: obj });
+      } else { pendingStreams.delete(cbId); finish('000||web uses fetch'); }
+    } catch (e) { finish('000||' + (e && e.message ? e.message : e)); }
+  });
+}
+
+function b64ToDataURL(b64) {
+  const s = String(b64).trim();
+  if (s.indexOf('data:') === 0) return s;
+  const mime = s.slice(0, 8) === 'iVBORw0K' ? 'image/png' : 'image/jpeg';
+  return 'data:' + mime + ';base64,' + s;
+}
+
+const FLUX_MODEL = '@cf/black-forest-labs/flux-1-schnell';
+function cfReady() {
+  return settings.provider === 'cloudflare' && !!(settings.token || '').trim() &&
+    (!!((settings.account || '').trim()) || !!((settings.base || '').trim()));
+}
+function imageRunUrl() {
+  const base = (settings.base || '').trim();
+  if (base) {
+    const root = base.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '');
+    return root + '/run/' + FLUX_MODEL;
+  }
+  return 'https://api.cloudflare.com/client/v4/accounts/' + encodeURIComponent((settings.account || '').trim()) + '/ai/run/' + FLUX_MODEL;
+}
+function extractFluxB64(txt) {
+  let j = null;
+  try { j = JSON.parse(txt); } catch (e) {}
+  const r = (j && (j.result || j)) || {};
+  const img = r.image || r.img || (Array.isArray(r.images) && r.images[0]);
+  if (!img) throw { status: 200, body: txt.slice(0, 200) };
+  return img;
+}
+async function cfImage(prompt) {
+  const bodyStr = JSON.stringify({ prompt: String(prompt).slice(0, 900) });
+  let out;
+  if (ENV === 'web') {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 95000);
+    try {
+      const r = await fetch(imageRunUrl(), { method: 'POST', headers: apiHeaders(), body: bodyStr, signal: ctrl.signal });
+      if (!r.ok) throw { status: r.status, body: await r.text().catch(() => '') };
+      out = await r.text();
+    } finally { clearTimeout(t); }
+  } else {
+    out = await oneShotPost(imageRunUrl(), apiHeaders(), bodyStr, 95000);
+  }
+  return b64ToDataURL(extractFluxB64(out));
+}
+function pollinationsURL(prompt, seed) {
+  return 'https://image.pollinations.ai/prompt/' + encodeURIComponent(String(prompt).slice(0, 700)) +
+    '?width=1024&height=1024&nologo=true&model=flux&seed=' + (seed || 7);
+}
+function preloadImage(url) {
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    const t = setTimeout(() => { try { im.src = ''; } catch (e) {} reject(new Error('زمان ساخت عکس تمام شد — دوباره تلاش کن')); }, 110000);
+    im.onload = () => { clearTimeout(t); resolve(true); };
+    im.onerror = () => { clearTimeout(t); reject(new Error('موتور عکس جواب نداد — دوباره تلاش کن')); };
+    im.src = url;
+  });
+}
+function pickImageEngine() {
+  const e = settings.imageEngine || 'auto';
+  if (e === 'cloudflare') return 'cloudflare';
+  if (e === 'pollinations') return 'pollinations';
+  return cfReady() ? 'cloudflare' : 'pollinations';
+}
+/* پرامپت فارسی را برای نتیجهٔ بهتر به انگلیسی روان ترجمه کن (کوتاه، با مهلت) */
+async function translatePrompt(text) {
+  const isFa = /[\u0600-\u06FF]/.test(text);
+  if (!isFa || !apiUrl()) return '';
+  const p0 = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
+  if (p0.needsToken !== false && !(settings.token || '').trim()) return '';
+  try {
+    const body = {
+      model: chosenModel(), stream: false, max_tokens: 140, temperature: 0.1,
+      messages: [
+        { role: 'system', content: 'You are a translator. Translate the user text into one vivid English prompt for an image-generation model. Reply ONLY with the English prompt.' },
+        { role: 'user', content: String(text).slice(0, 300) }
+      ]
+    };
+    const raw = ENV === 'web'
+      ? await (async () => {
+          const ctrl = new AbortController();
+          const t = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 15000);
+          try {
+            const r = await fetch(apiUrl(), { method: 'POST', headers: apiHeaders(), body: JSON.stringify(body), signal: ctrl.signal });
+            if (!r.ok) throw new Error('http ' + r.status);
+            return await r.text();
+          } finally { clearTimeout(t); }
+        })()
+      : await oneShotPost(apiUrl(), apiHeaders(), JSON.stringify(body), 15000);
+    const j = JSON.parse(raw);
+    const out = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+    const clean = String(out || '').replace(/^["'\s]+|["'\s]+$/g, '').replace(/[\r\n]+/g, ' ');
+    return (clean && clean.length > 2 && !/error|unavailable/i.test(clean)) ? clean.slice(0, 400) : '';
+  } catch (e) { return ''; }
+}
+const IMG_ENGINE_NAME = { cloudflare: 'Flux · Cloudflare', pollinations: 'Flux · پولینیشن (رایگان)' };
+function genImgHTML(m) {
+  return '<div class="gen-img-wrap"><img class="gen-img" src="' + esc(m.img) + '" alt="عکس ساخته‌شده"></div>' +
+    (m.c ? '<p class="gen-caption">' + esc(m.c) + '</p>' : '') +
+    '<div class="img-actions">' +
+    '<button type="button" class="img-save"><svg class="ic"><use href="#i-download"/></svg><span>ذخیرهٔ عکس</span></button>' +
+    '<button type="button" class="img-open"><svg class="ic"><use href="#i-expand"/></svg><span>بزرگ / باز کردن</span></button>' +
+    '</div>';
+}
+function openImageSrc(src) {
+  try {
+    if (ENV === 'android' && typeof AndroidAI !== 'undefined' && AndroidAI.openUrl) { AndroidAI.openUrl(src); return; }
+    if (ENV === 'electron' && window.electronAPI && window.electronAPI.openExternal) { window.electronAPI.openExternal(src); return; }
+  } catch (e) {}
+  window.open(src, '_blank', 'noopener');
+}
+function saveGeneratedImage(src) {
+  const name = 'sukot-image-' + Date.now() + (String(src).indexOf('data:image/png') === 0 ? '.png' : '.jpg');
+  if (String(src).indexOf('data:') === 0) {
+    if (ENV === 'android' && typeof AndroidAI !== 'undefined' && AndroidAI.saveImage) {
+      const p = AndroidAI.saveImage(name, src);
+      toast(p ? 'عکس ذخیره شد: ' + p : 'ذخیرهٔ عکس ممکن نشد', !p);
+      return;
+    }
+    if (ENV === 'electron' && window.electronAPI && window.electronAPI.saveImage) {
+      window.electronAPI.saveImage(name, src).then((p) => toast(p ? 'عکس در Downloads ذخیره شد ✓' : 'ذخیره ممکن نشد', !p)).catch(() => toast('ذخیره ممکن نشد', true));
+      return;
+    }
+    try {
+      const a = document.createElement('a');
+      a.href = src; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      toast('عکس ذخیره شد ✓');
+    } catch (e) { toast('ذخیره ممکن نشد', true); }
+  } else {
+    openImageSrc(src);
+    toast('عکس در تب جدید باز شد؛ از آنجا می‌توانی ذخیره‌اش کنی');
+  }
+}
+/* عکس ذخیره‌شده در تاریخچه را کوچک کن تا حافظه پر نشود */
+function storeThumbAsync(src, msgRef) {
+  const im = new Image();
+  im.onload = () => {
+    try {
+      const t = canvasResize(im, 640, 0.8);
+      if (t && t.length < String(src).length) { msgRef.img = t; saveChats(chats); }
+    } catch (e) {}
+  };
+  im.src = src;
+}
+async function sendImage(text) {
+  let c = currentChat();
+  if (!c) { newChat(); c = currentChat(); }
+  $('#welcome').classList.add('hidden');
+  if (c.msgs.length === 0) { c.title = ('عکس: ' + text).slice(0, 32); renderChatList(); }
+  c.msgs.push({ r: 'user', c: text, gen: true });
+  addMsgDom('user', userMsgHTML(text, [], [], true));
+  $('#input').value = ''; autoGrow();
+  saveChats(chats); scrollBottom(true);
+
+  sendLock = true; setBusy(true);
+  const botId = 'bot-' + uid();
+  const w = addMsgDom('bot',
+    '<div class="img-loading"><svg class="ic brush"><use href="#i-image"/></svg>' +
+    '<span>دارم عکس «' + esc(text.slice(0, 60)) + '» را می‌سازم…<br>حدود ۱۰ تا ۳۰ ثانیه صبر کن</span></div>', botId);
+  scrollBottom(true);
+
+  const engine = pickImageEngine();
+  let res = null, via = '', errFinal = null;
+  const attempt = async (eng) => {
+    if (eng === 'cloudflare') {
+      const promptEn = await translatePrompt(text);
+      const src = await cfImage(promptEn || text);
+      via = 'cloudflare';
+      return { src: src, promptEn: promptEn };
+    }
+    const url = pollinationsURL(text, Math.floor(Math.random() * 99999));
+    await preloadImage(url);
+    via = 'pollinations';
+    return { src: url, promptEn: '' };
+  };
+  try { res = await attempt(engine); }
+  catch (e1) {
+    const other = engine === 'cloudflare' ? 'pollinations' : (cfReady() ? 'cloudflare' : null);
+    if (!other) {
+      errFinal = (e1 && e1.body && e1.status ? friendlyError(e1.status, e1.body) : (e1 && e1.message) || 'ساخت عکس ممکن نشد');
+    } else {
+      w.querySelector('.bubble').innerHTML = toolNoteHTML('موتور اول جواب نداد؛ با موتور رایگان جایگزین دوباره تلاش می‌کنم…');
+      scrollBottom(false);
+      try { res = await attempt(other); }
+      catch (e2) { errFinal = (e2 && e2.body && e2.status ? friendlyError(e2.status, e2.body) : (e2 && e2.message) || 'ساخت عکس ممکن نشد'); }
+    }
+  }
+
+  setBusy(false); sendLock = false;
+  const bubble = w.querySelector('.bubble');
+  if (errFinal || !res) {
+    bubble.innerHTML = errorHTML('ساخت عکس ناموفق بود: ' + errFinal);
+    c.msgs.push({ r: 'assistant', c: '[خطا] ساخت عکس ناموفق بود: ' + errFinal });
+    saveChats(chats); scrollBottom(false); return;
+  }
+  const caption = 'عکس ساخته شد با ' + (IMG_ENGINE_NAME[via] || via) +
+    (res.promptEn && res.promptEn !== text ? ' — پرامپت انگلیسی‌شده: «' + res.promptEn + '»' : '');
+  bubble.innerHTML = genImgHTML({ img: res.src, c: caption });
+  w.querySelector('.img-save').addEventListener('click', () => saveGeneratedImage(res.src));
+  w.querySelector('.img-open').addEventListener('click', () => openImageSrc(res.src));
+  const msgRef = { r: 'assistant', c: caption, img: res.src, via: via };
+  c.msgs.push(msgRef);
+  saveChats(chats); scrollBottom(false);
+  if (String(res.src).indexOf('data:') === 0) storeThumbAsync(res.src, msgRef);
+}
+
+function updateImageBtn() {
+  const b = $('#btn-image');
+  if (!b) return;
+  const on = !!settings.imageMode;
+  b.dataset.mode = on ? 'on' : 'off';
+  b.title = on ? 'ساخت عکس: روشن — پیام بعدی عکس می‌سازد (کلیک برای خاموش‌کردن)'
+               : 'ساخت عکس: خاموش (کلیک برای روشن‌کردن — مثل ChatGPT عکس می‌سازد)';
+  b.classList.toggle('mode-img', on);
+}
+
 /* ---------- settings modal ---------- */
 let modalProvider = 'cloudflare';
 
+function switchTab(id) {
+  document.querySelectorAll('#set-tabs .tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === id));
+  document.querySelectorAll('#settings-modal .tab-page').forEach((pg) => pg.classList.toggle('hidden', pg.dataset.page !== id));
+}
+function applyProviderUI() {
+  const p = PROVIDERS[modalProvider] || PROVIDERS.cloudflare;
+  const isCF = modalProvider === 'cloudflare';
+  const acc = $('#field-account');
+  if (acc) acc.classList.toggle('hidden', !isCF);
+  const tr = $('#token-req');
+  if (tr) tr.classList.toggle('hidden', p.needsToken === false);
+  const box = $('#box-keys');
+  if (box) box.classList.toggle('hidden', p.needsToken === false);
+  const kt = $('#keys-title');
+  if (kt) kt.textContent = p.needsToken === false ? 'این سرویس کلید نمی‌خواهد — فقط مدل را انتخاب کن' : 'کلید و حساب سرویس';
+}
 function rebuildModelSelect() {
   const sel = $('#set-model');
   const p = PROVIDERS[modalProvider] || PROVIDERS.cloudflare;
@@ -1488,11 +2004,12 @@ function rebuildModelSelect() {
   let opts = '';
   if (modalProvider === 'cloudflare') {
     const groups = {
-      'عمومی — مغز بزرگ': ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/openai/gpt-oss-120b', '@cf/nvidia/nemotron-3-120b-a12b', '@cf/openai/gpt-oss-20b', '@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/mistralai/mistral-small-3.1-24b-instruct', '@cf/zai-org/glm-4.7-flash', '@cf/google/gemma-4-26b-a4b-it'],
-      'برنامه‌نویسی': ['@cf/qwen/qwen2.5-coder-32b-instruct', '@cf/qwen/qwen3-30b-a3b-fp8', '@cf/ibm-granite/granite-4.0-h-micro'],
-      'استدلال عمیق (کندتر، با تفکر)': ['@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', '@cf/qwen/qwq-32b'],
+      'غول‌های بالای ۳۰۰B — با ارتقای پلن کلادفلر': ['@cf/zai-org/glm-5.3', '@cf/moonshotai/kimi-k2.6', '@cf/deepseek-ai/deepseek-v4-pro-0813', '@cf/zai-org/glm-5.3-flash', '@cf/deepseek-ai/deepseek-v4.1-flash-1017', '@cf/moonshotai/kimi-k2.7-code', '@cf/zai-org/glm-5.2'],
+      'عمومی — مغز بزرگ': ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/openai/gpt-oss-120b', '@cf/nvidia/nemotron-3-120b-a12b', '@cf/openai/gpt-oss-20b', '@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/mistralai/mistral-small-3.1-24b-instruct', '@cf/aisingapore/gemma-sea-lion-v4-27b-it', '@cf/zai-org/glm-4.7-flash', '@cf/google/gemma-4-26b-a4b-it'],
+      'برنامه‌نویسی': ['@cf/moonshotai/kimi-k2.7-code', '@cf/qwen/qwen2.5-coder-32b-instruct', '@cf/qwen/qwen3-30b-a3b-fp8', '@cf/ibm-granite/granite-4.0-h-micro'],
+      'استدلال عمیق (کندتر، با تفکر)': ['@cf/deepseek-ai/deepseek-v4-pro-0813', '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', '@cf/qwen/qwq-32b'],
       'سریع — گفتگو، صوتی و پلن رایگان': ['@cf/meta/llama-3.1-8b-instruct-fast', '@cf/meta/llama-3.1-8b-instruct-fp8', '@cf/meta/llama-3.2-3b-instruct', '@cf/mistral/mistral-7b-instruct-v0.1'],
-      'چندوجهی (تصویر)': ['@cf/qwen/qwen3.8-27b']
+      'چندوجهی — این‌ها عکس را می‌بینند': ['@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/qwen/qwen3.8-27b', '@cf/zai-org/glm-5.3-flash', '@cf/moonshotai/kimi-k2.6', '@cf/deepseek-ai/deepseek-v4.1-flash-1017']
     };
     for (const g in groups) {
       opts += '<optgroup label="' + esc(g) + '">';
@@ -1511,15 +2028,20 @@ function rebuildModelSelect() {
   if (modalProvider === 'custom') sel.value = 'custom';
   $('#set-model-custom').value = want && sel.value === 'custom' ? (settings.modelCustom || (want !== 'custom' ? want : cur)) : (settings.modelCustom || '');
   $('#set-model-custom').classList.toggle('hidden', sel.value !== 'custom');
-  $('#provider-hint').innerHTML = 'دریافت کلید: <span class="en" dir="ltr">' + esc(p.tokenUrl) + '</span>' +
-    (p.needsAccount ? ' + Account ID' : '') +
+  $('#provider-hint').innerHTML = (p.needsToken === false
+    ? 'بدون کلید و بدون ثبت‌نام — همین حالا کار می‌کند'
+    : 'دریافت کلید: <span class="en" dir="ltr">' + esc(p.tokenUrl) + '</span>' + (p.needsAccount ? ' + Account ID' : '')) +
+    (modalProvider === 'pollinations' ? ' — محدودیت رایگان: هر ۴۵ ثانیه یک پیام؛ برای کار سنگین کلادفلر یا Groq را انتخاب کن' : '') +
+    (modalProvider === 'groq' ? ' — رایگان حدود ۳۰ درخواست در دقیقه' : '') +
     (modalProvider === 'zai' ? ' — مدل‌های جدیدتر GLM را می‌توانی دستی بنویسی (مثل glm-5.x)' : '') +
     (modalProvider === 'openrouter' ? ' — هر مدل دیگر را می‌توانی از openrouter.ai/models دستی بنویسی' : '');
+  applyProviderUI();
 }
 
 function openSettings() {
   modalProvider = settings.provider || 'cloudflare';
   $('#set-provider').value = modalProvider;
+  switchTab('conn');
   $('#set-token').value = settings.token;
   $('#set-account').value = settings.account;
   $('#set-base').value = settings.base;
@@ -1534,6 +2056,7 @@ function openSettings() {
   $('#set-rate').value = settings.speakRate || 1;
   $('#rate-val').textContent = settings.speakRate || 1;
   $('#set-ttsfallback').checked = settings.ttsFallback !== false;
+  $('#set-imgengine').value = settings.imageEngine || 'auto';
   refreshVoiceList();
   $('#test-result').textContent = ''; $('#test-result').className = 'test-result';
   $('#settings-backdrop').classList.remove('hidden');
@@ -1559,6 +2082,7 @@ function readSettingsFromModal() {
     speakRate: Number($('#set-rate').value) || 1,
     voice: $('#set-voice').value || '',
     ttsFallback: $('#set-ttsfallback').checked,
+    imageEngine: $('#set-imgengine').value || 'auto',
     cat: settings.cat,
     modelPicked: true
   };
@@ -1569,16 +2093,52 @@ function saveFromModal() {
   saveSettings(settings);
   refreshStatus(); updateWebBtn(); closeSettings();
   toast('تنظیمات ذخیره شد');
+  liveCheck();
 }
 
 function refreshStatus() {
   const p = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
+  const needTok = p.needsToken !== false;
   const needAcct = p.needsAccount && !(settings.base || '').trim();
-  const ok = settings.token.trim() && (!needAcct || settings.account.trim());
-  $('#status-dot').className = 'dot ' + (ok ? 'dot-on' : 'dot-off');
-  $('#status-text').textContent = ok ? 'متصل — ' + p.name : 'تنظیمات لازم است';
+  const ok = (!needTok || settings.token.trim()) && (!needAcct || settings.account.trim());
+  const dot = $('#status-dot');
+  if (dot.className.indexOf('dot-live') === -1) {
+    dot.className = 'dot ' + (ok ? 'dot-on' : 'dot-off');
+    $('#status-text').textContent = ok ? (needTok ? 'متصل — ' + p.name : 'آماده — ' + p.name + ' (بدون کلید)') : 'تنظیمات لازم است';
+  }
   $('#model-badge span').textContent = prettyModel(chosenModel());
   refreshCatBadge();
+}
+
+/* — وضعیت زنده: چراغ سبز فقط وقتی که اتصالِ واقعی به مدل جواب داده باشد —
+   اگر مدل انتخابی روی حسابت فعال نبود، یک بار با مدل پایدار جایگزین تست می‌کنیم */
+function liveCheck() {
+  const p = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
+  const needTok = p.needsToken !== false;
+  const needAcct = p.needsAccount && !(settings.base || '').trim();
+  if ((needTok && !settings.token.trim()) || (needAcct && !settings.account.trim())) return;
+  const url = apiUrl();
+  if (!url) return;
+  let acc = '';
+  const attempt = (model, retried) => {
+    acc = '';
+    const body = { model: model, stream: true, max_tokens: 24, messages: [{ role: 'user', content: 'سلام' }] };
+    streamRequest(url, apiHeaders(), body, (t) => { acc += t; }, (err) => {
+      const dot = $('#status-dot'), txt = $('#status-text');
+      if (err && err.indexOf('[model-unavailable]') !== -1 && !retried) {
+        attempt(fallbackModel(model), true);
+        return;
+      }
+      if (!err && stripThink(acc).text.trim()) {
+        dot.className = 'dot dot-on dot-live';
+        txt.textContent = (retried ? 'آنلاین ✓ — مدل انتخابی حسابت فعال نبود؛ فالبک به ' : 'آنلاین و سبز ✓ — ') + prettyModel(model);
+      } else {
+        dot.className = 'dot dot-off';
+        txt.textContent = 'اتصال برقرار نشد — در تنظیمات «تست اتصال» را بزن';
+      }
+    });
+  };
+  attempt(chosenModel(), false);
 }
 
 /* ---------- brain modal ---------- */
@@ -1593,9 +2153,9 @@ function renderMemoryList() {
   const list = $('#mem-list');
   const count = $('#mem-count');
   list.innerHTML = '';
-  count.innerHTML = '<svg class="ic"><use href="#i-chip"/></svg><span>' + memories.length + ' خاطره در مغز سوکات' + (memories.length >= 80 ? ' (حداکثر ۸۰)' : '') + '</span>';
+  count.innerHTML = '<svg class="ic"><use href="#i-chip"/></svg><span>' + memories.length + ' خاطره در مغز سوکوت' + (memories.length >= 80 ? ' (حداکثر ۸۰)' : '') + '</span>';
   if (!memories.length) {
-    list.innerHTML = '<div class="mem-empty">مغز سوکات هنوز خالی است.<br>چند چیز دربارهٔ خودت بگو تا یادش بماند — مثلاً «اسم من … است و در … زندگی می‌کنم».</div>';
+    list.innerHTML = '<div class="mem-empty">مغز سوکوت هنوز خالی است.<br>چند چیز دربارهٔ خودت بگو تا یادش بماند — مثلاً «اسم من … است و در … زندگی می‌کنم».</div>';
     return;
   }
   for (const m of memories) {
@@ -1624,7 +2184,7 @@ function addMemoryFromInput() {
   if (addMemory(v, 'manual')) {
     $('#mem-input').value = '';
     renderMemoryList();
-    toast('در مغز سوکات حک شد');
+    toast('در مغز سوکوت حک شد');
   } else {
     toast('این خاطره تکراری است', true);
   }
@@ -1689,6 +2249,36 @@ function boot() {
   $('#set-rate').addEventListener('input', () => { $('#rate-val').textContent = $('#set-rate').value; });
   $('#btn-tts-test').addEventListener('click', testSpeak);
 
+  /* تب‌های تنظیمات */
+  document.querySelectorAll('#set-tabs .tab-btn').forEach((b) => {
+    b.addEventListener('click', () => switchTab(b.dataset.tab));
+  });
+
+  /* حالت ساخت عکس (مثل ChatGPT) */
+  $('#btn-image').addEventListener('click', () => {
+    settings.imageMode = !settings.imageMode;
+    saveSettings(settings);
+    updateImageBtn();
+    toast(settings.imageMode ? 'حالت ساخت عکس روشن شد — بنویس چه عکسی بسازم 🎨' : 'حالت ساخت عکس خاموش شد — به حالت گفتگو برگشتم');
+  });
+
+  /* اجرای زندهٔ بازی/کد */
+  $('#btn-run-close').addEventListener('click', closeRunOverlay);
+  $('#run-backdrop').addEventListener('click', (e) => { if (e.target.id === 'run-backdrop') closeRunOverlay(); });
+  $('#btn-run-reload').addEventListener('click', () => {
+    const f = $('#run-frame');
+    const doc = f.srcdoc;
+    f.srcdoc = '';
+    setTimeout(() => { f.srcdoc = doc; }, 40);
+  });
+  $('#btn-run-full').addEventListener('click', () => {
+    const el = $('#run-frame');
+    try {
+      if (document.fullscreenElement) { document.exitFullscreen(); return; }
+      if (el.requestFullscreen) el.requestFullscreen();
+    } catch (e) { toast('تمام‌صفحه در این دستگاه پشتیبانی نمی‌شود', true); }
+  });
+
   /* categories: welcome cards + header badge + modal */
   document.querySelectorAll('.cat-card').forEach((b) => {
     b.addEventListener('click', () => {
@@ -1706,6 +2296,11 @@ function boot() {
 
   /* code-copy (event delegation — bubbles re-render while streaming) */
   $('#messages').addEventListener('click', (e) => {
+    const runBtn = e.target.closest('.code-run');
+    if (runBtn) {
+      const rblock = runBtn.closest('.codeblock');
+      if (rblock) { runCodeFromBlock(rblock); return; }
+    }
     const btn = e.target.closest('.code-copy');
     if (!btn) return;
     const block = btn.closest('.codeblock');
@@ -1732,13 +2327,29 @@ function boot() {
   });
   $('#btn-mem-clear').addEventListener('click', () => {
     memories = []; saveMemories(); renderMemoryList();
-    toast('مغز سوکات پاک شد', true);
+    toast('مغز سوکوت پاک شد', true);
   });
 
   /* about */
   $('#btn-about').addEventListener('click', () => { $('#about-backdrop').classList.remove('hidden'); });
   $('#btn-close-about').addEventListener('click', () => { $('#about-backdrop').classList.add('hidden'); });
   $('#about-backdrop').addEventListener('click', (e) => { if (e.target.id === 'about-backdrop') $('#about-backdrop').classList.add('hidden'); });
+
+  /* پیوست فایل و عکس: دکمه، کشیدن و رها کردن، چسباندن از کلیپ‌بورد */
+  const fileInput = $('#file-input');
+  $('#btn-attach').addEventListener('click', () => { try { fileInput.value = ''; } catch (e) {} fileInput.click(); });
+  fileInput.addEventListener('change', () => { processFiles(fileInput.files); });
+  const dropZone = $('#main');
+  ['dragover', 'dragenter'].forEach((ev) => dropZone.addEventListener(ev, (e) => { e.preventDefault(); dropZone.classList.add('dragging'); }));
+  ['dragleave', 'drop'].forEach((ev) => dropZone.addEventListener(ev, (e) => { e.preventDefault(); dropZone.classList.remove('dragging'); }));
+  dropZone.addEventListener('drop', (e) => { if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) processFiles(e.dataTransfer.files); });
+  $('#input').addEventListener('paste', (e) => {
+    try {
+      if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length) {
+        e.preventDefault(); processFiles(e.clipboardData.files);
+      }
+    } catch (err) {}
+  });
 
   $('#input').addEventListener('input', autoGrow);
   $('#input').addEventListener('keydown', (e) => {
@@ -1762,8 +2373,9 @@ function boot() {
 
   document.querySelectorAll('.suggestion').forEach((b) => b.addEventListener('click', () => send(b.textContent)));
 
-  markCatCards(); updateWebBtn();
+  markCatCards(); updateWebBtn(); updateImageBtn();
   renderChatList(); renderMessages(); refreshStatus(); autoGrow();
+  liveCheck();
 
   window.addEventListener('beforeunload', () => { try { stopSpeak(); } catch (e) {} });
 

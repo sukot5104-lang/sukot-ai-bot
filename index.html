@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#12091f">
-<title>سوکات AI — دستیار هوشمند فارسی</title>
+<title>سوکوت AI — دستیار هوشمند فارسی</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -38,6 +38,13 @@
   <symbol id="i-speak" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.8 5.2a9 9 0 0 1 0 13.6"/></symbol>
   <symbol id="i-telegram" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M21.94 4.35 18.9 19.13c-.23 1.03-.84 1.28-1.7.8l-4.7-3.46-2.27 2.18c-.25.25-.46.46-.94.46l.34-4.78 8.72-7.88c.38-.34-.08-.53-.58-.19L7.1 12.91l-4.62-1.44c-1-.31-1.02-1 .21-1.48L20.24 3.05c.84-.31 1.57.19 1.3 1.3z"/></symbol>
   <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+  <symbol id="i-gamepad" viewBox="0 0 24 24"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="4"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></symbol>
 </svg>
 
 <div id="app">
@@ -45,9 +52,9 @@
   <!-- ===== Sidebar ===== -->
   <aside id="sidebar">
     <div class="brand">
-      <img class="brand-logo" src="img/hero.jpg" alt="سوکات">
+      <img class="brand-logo" src="img/hero.jpg" alt="سوکوت">
       <div class="brand-text">
-        <b>سوکات AI</b>
+        <b>سوکوت AI</b>
         <span class="en">Sukot AI · by Sukot</span>
       </div>
     </div>
@@ -63,13 +70,13 @@
       <svg class="ic"><use href="#i-chip"/></svg><span>مغز و حافظه</span>
     </button>
 
-    <a id="btn-telegram" class="side-tool tg" href="https://t.me/SUKOT1344" target="_blank" rel="noopener" title="کانال تلگرام سوکات">
-      <svg class="ic"><use href="#i-telegram"/></svg><span>کانال تلگرام سوکات</span>
+    <a id="btn-telegram" class="side-tool tg" href="https://t.me/SUKOT1344" target="_blank" rel="noopener" title="کانال تلگرام سوکوت">
+      <svg class="ic"><use href="#i-telegram"/></svg><span>کانال تلگرام سوکوت</span>
     </a>
 
     <div class="sidebar-footer">
       <div class="conn"><span id="status-dot" class="dot dot-off"></span><span id="status-text">تنظیمات لازم است</span></div>
-      <button id="btn-about" class="creator-chip" title="درباره سوکات AI">
+      <button id="btn-about" class="creator-chip" title="درباره سوکوت AI">
         <svg class="ic ic-sm"><use href="#i-crown"/></svg><span>سازنده: <b>Sukot</b></span>
       </button>
     </div>
@@ -99,13 +106,13 @@
         <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
       </div>
       <div class="hero-ring">
-        <img class="hero" src="img/hero.jpg" alt="سوکات">
+        <img class="hero" src="img/hero.jpg" alt="سوکوت">
       </div>
-      <h1>سلام! من سوکات هستم</h1>
-      <p class="sub">دستیار هوشمند فارسی با جستجوی وب، مغز بزرگ و حافظهٔ بلندمدت — ساختهٔ <b>Sukot</b></p>
-      <p class="sub2">قدرت‌گرفته از Cloudflare Workers AI</p>
+      <h1>سلام! من سوکوت هستم</h1>
+      <p class="sub">دستیار هوشمند فارسی با ساخت عکس، اجرای زندهٔ بازی، جستجوی وب و حافظهٔ بلندمدت — ساختهٔ <b>Sukot</b></p>
+      <p class="sub2">قدرت‌گرفته از Cloudflare Workers AI · Pollinations · Groq · Gemini</p>
       <a class="welcome-tg" href="https://t.me/SUKOT1344" target="_blank" rel="noopener">
-        <svg class="ic ic-sm"><use href="#i-telegram"/></svg><span>عضویت در کانال تلگرام سوکات</span>
+        <svg class="ic ic-sm"><use href="#i-telegram"/></svg><span>عضویت در کانال تلگرام سوکوت</span>
       </a>
       <div class="cat-grid">
         <button class="cat-card" data-cat="general">
@@ -117,22 +124,33 @@
         <button class="cat-card" data-cat="study">
           <svg class="ic"><use href="#i-cap"/></svg><b>درسی و آموزشی</b><span>معلم خصوصی قدم‌به‌قدم و صبور</span>
         </button>
+        <button class="cat-card" data-cat="games">
+          <svg class="ic"><use href="#i-gamepad"/></svg><b>بازی‌سازی</b><span>بازی کامل بساز و همین‌جا اجرا کن</span>
+        </button>
         <button class="cat-card" data-cat="voice">
           <svg class="ic"><use href="#i-mic"/></svg><b>گفتگوی صوتی</b><span>جواب کوتاه؛ با صدا خوانده می‌شود</span>
         </button>
       </div>
       <div class="suggestions">
+        <button class="suggestion"><svg class="ic ic-sm"><use href="#i-gamepad"/></svg><span>یه بازی مار کامل و رنگی بساز که همین‌جا اجراش کنم</span></button>
         <button class="suggestion"><svg class="ic ic-sm"><use href="#i-spark"/></svg><span>اسم من علی است؛ یادت باشد. حالا بگو اسمم را یادت ماند یا نه!</span></button>
-        <button class="suggestion"><svg class="ic ic-sm"><use href="#i-spark"/></svg><span>سلام! خودت رو معرفی کن؛ تو چی هستی و سازنده‌ات کیست؟</span></button>
       </div>
     </div>
 
     <footer id="composer-wrap">
+      <div id="attach-bar" class="attach-bar hidden"></div>
       <div id="composer">
+        <button id="btn-attach" class="web-btn" title="پیوست عکس یا فایل (عکس را مدل می‌بیند، فایل متنی/کد را می‌خواند)">
+          <svg class="ic ic-lg"><use href="#i-paperclip"/></svg>
+        </button>
+        <input type="file" id="file-input" class="hidden" multiple accept="image/*,.txt,.md,.markdown,.json,.csv,.tsv,.log,.xml,.yml,.yaml,.html,.htm,.css,.js,.mjs,.ts,.jsx,.tsx,.py,.java,.kt,.c,.h,.cpp,.cs,.php,.rb,.go,.rs,.swift,.sql,.sh,.bat,.ini,.toml,.svg,.srt,.vtt">
         <button id="btn-web" class="web-btn" title="جستجوی وب: خودکار" data-mode="auto">
           <svg class="ic ic-lg"><use href="#i-globe"/></svg>
         </button>
-        <textarea id="input" rows="1" placeholder="از سوکات بپرس… (Enter = ارسال · Shift+Enter = خط جدید)"></textarea>
+        <button id="btn-image" class="web-btn" title="ساخت عکس: خاموش (کلیک برای روشن‌کردن — مثل ChatGPT عکس می‌سازد)" data-mode="off">
+          <svg class="ic ic-lg"><use href="#i-image"/></svg>
+        </button>
+        <textarea id="input" rows="1" placeholder="از سوکوت بپرس… (Enter = ارسال · Shift+Enter = خط جدید)"></textarea>
         <button id="btn-send" class="send-btn" title="ارسال">
           <svg class="ic ic-lg i-send"><use href="#i-send"/></svg>
           <svg class="ic ic-lg i-stop"><use href="#i-stop"/></svg>
@@ -147,105 +165,138 @@
 <div id="settings-backdrop" class="backdrop hidden">
   <div class="modal" id="settings-modal">
     <div class="modal-header">
-      <h2><svg class="ic"><use href="#i-gear"/></svg><span>تنظیمات اتصال</span></h2>
+      <h2><svg class="ic"><use href="#i-gear"/></svg><span>تنظیمات</span></h2>
       <button id="btn-close-settings" class="icon-btn"><svg class="ic"><use href="#i-x"/></svg></button>
     </div>
     <p class="modal-desc">
       سرویس هوش مصنوعی را انتخاب کن، کلیدش را بده و تمام:
-      <span class="en" dir="ltr">Cloudflare · Z.ai GLM · OpenRouter · سرویس دلخواه</span>
+      <span class="en" dir="ltr">Cloudflare · Pollinations · Groq · Gemini · OpenRouter · API دلخواه</span>
     </p>
 
-    <label class="field">
-      <span>سرویس هوش مصنوعی (پروایدر)</span>
-      <select id="set-provider">
-        <option value="cloudflare">Cloudflare Workers AI — ۱۶ مدل، پلن رایگان (پیش‌فرض)</option>
-        <option value="zai">Z.ai GLM — مغز غول‌پیکر ۳۵۵B (مثل جینی/Z.ai)</option>
-        <option value="openrouter">OpenRouter — DeepSeek ۶۷۱B و Kimi K2 ۱T (بعضی رایگان)</option>
-        <option value="custom">سرویس دلخواه — هر API سازگار با OpenAI</option>
-      </select>
-      <span class="hint" id="provider-hint">دریافت کلید: <span class="en" dir="ltr">dash.cloudflare.com → Workers AI → Use REST API</span> + Account ID</span>
-    </label>
-
-    <label class="field">
-      <span>کلید API (توکن) <b class="req" id="token-req">*</b></span>
-      <input type="password" id="set-token" placeholder="توکن سرویس انتخاب‌شده" autocomplete="off">
-    </label>
-
-    <label class="field" id="field-account">
-      <span>شناسهٔ حساب (Account ID) — فقط کلادفلر <b class="req">*</b></span>
-      <input type="text" id="set-account" placeholder="۳۲ کاراکتر hex — در صفحهٔ Use REST API" dir="ltr" autocomplete="off">
-    </label>
-
-    <label class="field" id="field-base">
-      <span>آدرس API (اختیاری — override دستی)</span>
-      <input type="text" id="set-base" placeholder="مثلاً https://api.example.com/v1/chat/completions" dir="ltr" autocomplete="off">
-    </label>
-
-    <label class="field">
-      <span>مدل هوش مصنوعی</span>
-      <select id="set-model"></select>
-      <input type="text" id="set-model-custom" placeholder="آیدی دقیق مدل" dir="ltr" class="hidden">
-      <span class="hint">مدل‌های بزرگ‌تر باهوش‌ترند؛ GLM-4.6 (۳۵۵B) و DeepSeek V3 (۶۷۱B) قدرتمندترین‌ها هستند.</span>
-    </label>
-
-    <label class="field">
-      <span>جستجوی وب برای اطلاعات به‌روز</span>
-      <select id="set-web">
-        <option value="auto">خودکار — فقط وقتی سؤال به خبر/قیمت/آخرین‌ها نیاز دارد (پیشنهادی)</option>
-        <option value="always">همیشه — قبل از هر پاسخ وب را جستجو کن</option>
-        <option value="off">خاموش — فقط از دانش خود مدل</option>
-      </select>
-      <span class="hint">با دکمهٔ کرهٔ زمین کنار نوشتار هم می‌توانید سریع عوض کنید.</span>
-    </label>
-
-    <label class="field check-field">
-      <input type="checkbox" id="set-agent">
-      <span>ابزارهای عامل — انجام کار: جستجوی وب، ماشین‌حساب، زمان، خواندن صفحه (مثل یک دستیار واقعی)</span>
-    </label>
-
-    <label class="field check-field">
-      <input type="checkbox" id="set-autospeak">
-      <span>خواندن خودکار پاسخ‌ها با صدا (مکالمهٔ صوتی)</span>
-    </label>
-
-    <label class="field">
-      <span>صدا (Voice)</span>
-      <select id="set-voice"></select>
-      <span class="hint">اگر صدای فارسی نمی‌شنوی: اندروید ← موتور Google Speech Services؛ ویندوز ← افزودن صدای فارسی در تنظیمات گفتار.</span>
-    </label>
-
-    <label class="field check-field">
-      <input type="checkbox" id="set-ttsfallback">
-      <span>اگر صدای فارسی نصب نبود، با صدای پیش‌فرض دستگاه بخوان</span>
-    </label>
-
-    <div class="modal-actions">
-      <button id="btn-tts-test" class="btn btn-ghost"><svg class="ic"><use href="#i-speak"/></svg><span>تست صدا</span></button>
+    <div class="tab-bar" id="set-tabs">
+      <button type="button" class="tab-btn active" data-tab="conn">اتصال</button>
+      <button type="button" class="tab-btn" data-tab="image">ساخت عکس</button>
+      <button type="button" class="tab-btn" data-tab="tools">جستجو و ابزار</button>
+      <button type="button" class="tab-btn" data-tab="voice">صدا</button>
+      <button type="button" class="tab-btn" data-tab="reply">پاسخ و شخصیت</button>
     </div>
 
-    <label class="field">
-      <span>سرعت خواندن صدا: <b id="rate-val">1</b></span>
-      <input type="range" id="set-rate" min="0.6" max="1.4" step="0.05" value="1">
-    </label>
+    <!-- ——— tab 1: اتصال و API خارجی ——— -->
+    <div class="tab-page" data-page="conn">
+      <label class="field">
+        <span>سرویس هوش مصنوعی (پروایدر)</span>
+        <select id="set-provider">
+          <option value="cloudflare">Cloudflare Workers AI — ۲۵+ مدل + غول‌های بالای ۳۰۰B (پیش‌فرض، تست‌شده ✓)</option>
+          <option value="pollinations">پولینیشن — رایگانِ کامل، بدون ثبت‌نام و بدون کلید ✓</option>
+          <option value="groq">Groq — رایگان بدون کارت بانکی (سریع‌ترین سرعت)</option>
+          <option value="gemini">Google Gemini — کلید رایگان از AI Studio (بدون کارت)</option>
+          <option value="zai">Z.ai GLM — مغز غول‌پیکر ۳۵۵B</option>
+          <option value="openrouter">OpenRouter — DeepSeek ۶۷۱B و Kimi K2 ۱T (بعضی رایگان)</option>
+          <option value="custom">API خارجی دلخواه — هر سرویس سازگار با OpenAI</option>
+        </select>
+        <span class="hint" id="provider-hint"></span>
+      </label>
 
-    <label class="field">
-      <span>سبک پاسخ</span>
-      <select id="set-style">
-        <option value="detailed">مفصل — عمیق با مثال و جمع‌بندی (پیشنهادی)</option>
-        <option value="normal">متعادل — کامل بدون اطاله</option>
-        <option value="short">کوتاه — مستقیم و سریع</option>
-      </select>
-    </label>
+      <div class="sub-box" id="box-keys">
+        <div class="sub-title" id="keys-title">کلید و حساب سرویس</div>
+        <label class="field">
+          <span>کلید API (توکن) <b class="req" id="token-req">*</b></span>
+          <input type="password" id="set-token" placeholder="توکن سرویس انتخاب‌شده" autocomplete="off">
+        </label>
+        <label class="field" id="field-account">
+          <span>شناسهٔ حساب (Account ID) — فقط کلادفلر <b class="req">*</b></span>
+          <input type="text" id="set-account" placeholder="۳۲ کاراکتر hex — در صفحهٔ Use REST API" dir="ltr" autocomplete="off">
+        </label>
+      </div>
 
-    <label class="field">
-      <span>شخصیت ربات (پیشرفته — خالی = شخصیت پیش‌فرض سوکات)</span>
-      <textarea id="set-sysprompt" rows="3" placeholder="مثلاً: تو یک شاعر بامزه هستی و با شعر جواب می‌دهی…"></textarea>
-    </label>
+      <label class="field">
+        <span>آدرس API خارجی (اختیاری — override دستی / سرویس دلخواه)</span>
+        <input type="text" id="set-base" placeholder="مثلاً https://api.example.com/v1/chat/completions" dir="ltr" autocomplete="off">
+        <span class="hint">برای هر سرویس سازگار با OpenAI (مثل Ollama، LM Studio، پروکسی شخصی و…) آدرسش را اینجا بگذار.</span>
+      </label>
 
-    <label class="field">
-      <span>خلاقیت پاسخ (Temperature): <b id="temp-val">0.7</b></span>
-      <input type="range" id="set-temp" min="0" max="1" step="0.05" value="0.7">
-    </label>
+      <label class="field">
+        <span>مدل هوش مصنوعی</span>
+        <select id="set-model"></select>
+        <input type="text" id="set-model-custom" placeholder="آیدی دقیق مدل" dir="ltr" class="hidden">
+        <span class="hint">مدل‌های بزرگ‌تر باهوش‌ترند؛ GLM 5.3 (کانتکست ۱ میلیون)، Kimi K2.6 (خانوادهٔ ۱ تریلیونی) و DeepSeek V4 Pro قوی‌ترین‌های کلادفلر هستند — این غول‌ها روی پلن پولی فعال می‌شوند؛ روی پلن رایگان سوکوت خودکار با مدل پایدار جواب می‌دهد.</span>
+      </label>
+    </div>
+
+    <!-- ——— tab 2: ساخت عکس ——— -->
+    <div class="tab-page hidden" data-page="image">
+      <p class="modal-desc">مثل ChatGPT عکس بساز: دکمهٔ «عکس» کنار نوشتار را روشن کن، بنویس چه چیزی بسازد — تمام! موتور رایگان هیچ کلیدی نمی‌خواهد.</p>
+      <label class="field">
+        <span>موتور ساخت عکس</span>
+        <select id="set-imgengine">
+          <option value="auto">خودکار — کلادفلر اگر تنظیم بود، وگرنه رایگان (پیشنهادی)</option>
+          <option value="cloudflare">Flux-1-Schnell روی کلادفلر (کیفیت بالا، نیازمند اتصال کلادفلر)</option>
+          <option value="pollinations">پولینیشن — کاملاً رایگان، بدون کلید و بدون ثبت‌نام</option>
+        </select>
+        <span class="hint">موتور رایگان پولینیشن در هر سه نسخهٔ اندروید، ویندوز و وب کار می‌کند و عکس را می‌توانی ذخیره کنی.</span>
+      </label>
+    </div>
+
+    <!-- ——— tab 3: جستجو و ابزار ——— -->
+    <div class="tab-page hidden" data-page="tools">
+      <label class="field">
+        <span>جستجوی وب برای اطلاعات به‌روز</span>
+        <select id="set-web">
+          <option value="auto">خودکار — فقط وقتی سؤال به خبر/قیمت/آخرین‌ها نیاز دارد (پیشنهادی)</option>
+          <option value="always">همیشه — قبل از هر پاسخ وب را جستجو کن</option>
+          <option value="off">خاموش — فقط از دانش خود مدل</option>
+        </select>
+        <span class="hint">با دکمهٔ کرهٔ زمین کنار نوشتار هم می‌توانید سریع عوض کنید.</span>
+      </label>
+      <label class="field check-field">
+        <input type="checkbox" id="set-agent">
+        <span>ابزارهای عامل — انجام کار: جستجوی وب، ماشین‌حساب، زمان، خواندن صفحه (مثل یک دستیار واقعی)</span>
+      </label>
+    </div>
+
+    <!-- ——— tab 4: صدا ——— -->
+    <div class="tab-page hidden" data-page="voice">
+      <label class="field check-field">
+        <input type="checkbox" id="set-autospeak">
+        <span>خواندن خودکار پاسخ‌ها با صدا (مکالمهٔ صوتی)</span>
+      </label>
+      <label class="field">
+        <span>صدا (Voice)</span>
+        <select id="set-voice"></select>
+        <span class="hint">اگر صدای فارسی نمی‌شنوی: اندروید ← موتور Google Speech Services؛ ویندوز ← افزودن صدای فارسی در تنظیمات گفتار.</span>
+      </label>
+      <label class="field check-field">
+        <input type="checkbox" id="set-ttsfallback">
+        <span>اگر صدای فارسی نصب نبود، با صدای پیش‌فرض دستگاه بخوان</span>
+      </label>
+      <label class="field">
+        <span>سرعت خواندن صدا: <b id="rate-val">1</b></span>
+        <input type="range" id="set-rate" min="0.6" max="1.4" step="0.05" value="1">
+      </label>
+      <div class="modal-actions">
+        <button id="btn-tts-test" class="btn btn-ghost"><svg class="ic"><use href="#i-speak"/></svg><span>تست صدا</span></button>
+      </div>
+    </div>
+
+    <!-- ——— tab 5: پاسخ و شخصیت ——— -->
+    <div class="tab-page hidden" data-page="reply">
+      <label class="field">
+        <span>سبک پاسخ</span>
+        <select id="set-style">
+          <option value="detailed">مفصل — عمیق با مثال و جمع‌بندی (پیشنهادی)</option>
+          <option value="normal">متعادل — کامل بدون اطاله</option>
+          <option value="short">کوتاه — مستقیم و سریع</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>شخصیت ربات (پیشرفته — خالی = شخصیت پیش‌فرض سوکوت)</span>
+        <textarea id="set-sysprompt" rows="3" placeholder="مثلاً: تو یک شاعر بامزه هستی و با شعر جواب می‌دهی…"></textarea>
+      </label>
+      <label class="field">
+        <span>خلاقیت پاسخ (Temperature): <b id="temp-val">0.7</b></span>
+        <input type="range" id="set-temp" min="0" max="1" step="0.05" value="0.7">
+      </label>
+    </div>
 
     <div class="modal-actions">
       <button id="btn-test" class="btn btn-ghost"><svg class="ic"><use href="#i-bolt"/></svg><span>تست اتصال</span></button>
@@ -275,11 +326,27 @@
       <button class="cat-card" data-cat="study">
         <svg class="ic"><use href="#i-cap"/></svg><b>درسی و آموزشی</b><span>معلم خصوصی قدم‌به‌قدم و صبور</span>
       </button>
+      <button class="cat-card" data-cat="games">
+        <svg class="ic"><use href="#i-gamepad"/></svg><b>بازی‌سازی</b><span>بازی کامل بساز و همین‌جا اجرا کن</span>
+      </button>
       <button class="cat-card" data-cat="voice">
         <svg class="ic"><use href="#i-mic"/></svg><b>گفتگوی صوتی</b><span>جواب کوتاه؛ با صدا خوانده می‌شود</span>
       </button>
     </div>
   </div>
+</div>
+
+<!-- ===== Run (game/code) overlay ===== -->
+<div id="run-backdrop" class="run-backdrop hidden">
+  <div class="run-head">
+    <div class="run-title"><svg class="ic"><use href="#i-play"/></svg><span>اجرای زندهٔ بازی / کد</span></div>
+    <div class="run-actions">
+      <button id="btn-run-reload" class="icon-btn" title="اجرای دوباره"><svg class="ic"><use href="#i-bolt"/></svg></button>
+      <button id="btn-run-full" class="icon-btn" title="تمام‌صفحه"><svg class="ic"><use href="#i-expand"/></svg></button>
+      <button id="btn-run-close" class="icon-btn" title="بستن"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+  </div>
+  <iframe id="run-frame" sandbox="allow-scripts allow-pointer-lock allow-modals allow-orientation-lock allow-popups" title="اجرای کد"></iframe>
 </div>
 
 <!-- ===== Brain / Memory Modal ===== -->
@@ -290,7 +357,7 @@
       <button id="btn-close-brain" class="icon-btn"><svg class="ic"><use href="#i-x"/></svg></button>
     </div>
     <p class="modal-desc">
-      اینجا «مغز بزرگ» سوکات است. هر چیزی که در گفتگو دربارهٔ خودت بگویی (اسم، شهر، علاقه‌ها، شغل…) یا دستی اینجا بنویسی،
+      اینجا «مغز بزرگ» سوکوت است. هر چیزی که در گفتگو دربارهٔ خودت بگویی (اسم، شهر، علاقه‌ها، شغل…) یا دستی اینجا بنویسی،
       برای همیشه به یاد می‌آورد و در همهٔ گفتگوها از آن استفاده می‌کند.
     </p>
     <div class="mem-add">
@@ -310,11 +377,11 @@
   <div class="modal about" id="about-modal">
     <button id="btn-close-about" class="icon-btn about-close"><svg class="ic"><use href="#i-x"/></svg></button>
     <div class="hero-ring about-ring">
-      <img class="about-hero" src="img/hero.jpg" alt="سوکات AI">
+      <img class="about-hero" src="img/hero.jpg" alt="سوکوت AI">
     </div>
-    <h2 class="about-name">سوکات AI</h2>
-    <div class="about-ver" dir="ltr">v1.3.1</div>
-    <p class="about-desc">دستیار هوشمند فارسی با مغزهای غول‌پیکر (GLM ۳۵۵B، DeepSeek ۶۷۱B)، ابزارهای عامل (انجام کار)، جستجوی زندهٔ وب، قیمت لحظه‌ای ارز، ۴ دستیار تخصصی، صدای فارسی، کپی کد و حافظهٔ بلندمدت — روی اندروید، ویندوز و وب.</p>
+    <h2 class="about-name">سوکوت AI</h2>
+    <div class="about-ver" dir="ltr">v1.5.0</div>
+    <p class="about-desc">ساخت عکس مثل ChatGPT (رایگان، بدون کلید)، استودیوی بازی‌سازی با اجرای زندهٔ بازی داخل خود اپ، سرویس‌های رایگان بدون کارت (پولینیشن، Groq، Gemini)، آپلود فایل و عکس، غول‌های بالای ۳۰۰B، ابزارهای عامل، جستجوی زندهٔ وب، قیمت لحظه‌ای ارز، ۵ دستیار تخصصی، صدای فارسی و حافظهٔ بلندمدت — روی اندروید، ویندوز و وب.</p>
     <a class="about-tg" href="https://t.me/SUKOT1344" target="_blank" rel="noopener">
       <svg class="ic ic-sm"><use href="#i-telegram"/></svg><span>کانال تلگرام: <b dir="ltr">@SUKOT1344</b></span>
     </a>
