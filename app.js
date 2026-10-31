@@ -1,8 +1,14 @@
 /* ============================================================
-   سوکوت AI (Sukot AI) v1.5.0 — Persian AI chatbot
+   سوکوت AI (Sukot AI) v1.6.0 — Persian AI chatbot
    powered by Cloudflare Workers AI · Pollinations · Groq · Gemini · OpenRouter
 
-   v1.5.0 highlights
+   v1.6.0 highlights
+   - استودیوی حرفه‌ای ساخت عکس: سبک‌ها (واقع‌گرایانه/انیمه/آبرنگ/پیکسل…)، گالری ساخته‌های اخیر،
+     ذخیره و پیوست تصویر به گفتگو — با API واقعی (Flux کلادفلر + پولینیشن رایگان)
+   - اجرای زندهٔ بازی سطح بالا: نمایش خطاهای اجرا + دکمهٔ «رفع خطا با سوکوت» + ویرایشگر کد و اجرای مجدد
+   - بخش مستقل «مدیریت API»: کلید/Base URL/مدل/تست اتصال با خطاهای دسته‌بندی‌شده + حذف API ذخیره‌شده
+   - تنظیمات ۸ بخشی: عمومی · ظاهر و تم (۳ تم واقعی + اندازهٔ متن) · مدل · مدیریت API ·
+     ساخت عکس · بازی‌سازی · امنیت و حریم خصوصی · درباره
    - ساخت عکس مثل ChatGPT: دکمهٔ عکس کنار نوشتار → Flux روی کلادفلر یا
      موتور رایگان پولینیشن (بدون کلید و بدون ثبت‌نام، در همهٔ پلتفرم‌ها) + ذخیرهٔ عکس
    - استودیوی بازی‌سازی: دستیار مخصوص بازی + دکمهٔ «اجرای بازی» روی بلوک کد —
@@ -15,7 +21,7 @@
 'use strict';
 
 /* ---------- constants ---------- */
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.6.0';
 const CREATOR = 'Sukot';
 const DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const LEGACY_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
@@ -135,12 +141,14 @@ const CATEGORIES = {
     model: '@cf/qwen/qwen2.5-coder-32b-instruct',
     temp: 0.6, style: 'detailed', web: 'off', autoSpeak: false,
     sys: BASE_IDENTITY +
-      '\n- تو استودیوی بازی‌سازی سوکوت هستی؛ مهندس ارشد بازی‌های HTML5.\n' +
+      '\n- تو استودیوی بازی‌سازی سوکوت هستی؛ مهندس ارشد بازی‌های HTML5 با سابقهٔ ساخت صدها بازی.\n' +
       '- همیشه بازی را به‌صورت «یک فایل کامل HTML» داخل بلوک ```html بده تا دکمهٔ «اجرای بازی» فعال شود و کاربر همان‌جا بازی کند.\n' +
-      '- بازی کامل باشد: صفحهٔ شروع، گیم‌پلی روان با requestAnimationFrame، کنترل با کیبورد و لمس/موس، امتیاز، صفحهٔ باخت و دکمهٔ شروع دوباره.\n' +
-      '- گرافیک را با Canvas و اشکال رنگی بساز؛ هیچ فایل خارجی، عکس یا CDN لازم نیست — همه‌چیز داخل همان یک فایل.\n' +
-      '- رابط بازی فارسی باشد؛ بعد از کد، کنترل‌های بازی را در ۳-۴ خط توضیح بده.\n' +
-      '- اگر خواستند، صدا (WebAudio)، ذخیرهٔ رکورد (localStorage) یا حالت دو‌نفره هم اضافه کن.'
+      '- بازی دوبعدی: گرافیک با Canvas 2D و اشکال رنگی — بدون هیچ فایل خارجی؛ همه‌چیز داخل همان یک فایل.\n' +
+      '- بازی سه‌بعدی: فقط در صورت صریح بودن درخواست، از three.js نسخهٔ 0.160.0 با این نشانی استفاده کن: https://unpkg.com/three@0.160.0/build/three.min.js و بقیهٔ کد داخل همان فایل باشد؛ اگر اینترنت نبود پیام خطای تمیز بده.\n' +
+      '- بازی کامل باشد: صفحهٔ شروع، مراحل با سختی فزاینده، گیم‌پلی روان با requestAnimationFrame و delta-time، کنترل هم‌زمان با کیبورد و لمس/موس، امتیاز و بهترین رکورد (localStorage)، صفحهٔ باخت و دکمهٔ شروع دوباره، جلوه‌های ذره‌ای و صدا با WebAudio در صورت مناسب بودن.\n' +
+      '- طراحی مراحل، شخصیت‌ها و رابط کاربری را با دقت و خلاقیت بساز؛ شخصیت‌ها را با اشکال و انیمیشن زنده بساز نه مربع ساده.\n' +
+      '- کد را قبل از تحویل ذهنی مرور کن: متغیرهای تعریف‌نشده، خطای syntax و باگ‌های رایج (مثل NaN در فیزیک، توقف حلقه، رویدادهای لمس) نداشته باشد.\n' +
+      '- رابط بازی فارسی باشد؛ بعد از کد، کنترل‌های بازی را در ۳-۴ خط توضیح بده. اگر کاربر خطا گزارش کرد، کد را کامل و اصلاح‌شده بازنویسی کن.'
   }
 };
 const CAT_ORDER = ['general', 'code', 'study', 'games', 'voice'];
@@ -299,7 +307,9 @@ function loadSettings() {
     sys: '', temp: 0.7, style: 'detailed',
     cat: 'general', webSearch: 'auto', autoSpeak: false, speakRate: 1,
     agentTools: true, voice: '', ttsFallback: true,
-    imageMode: false, imageEngine: 'auto'
+    imageMode: false, imageEngine: 'auto', imgStyle: 'none',
+    theme: 'night', fontScale: 1, anim: true,
+    gameBigRun: true, runErrors: true
   }, s);
   if (out.model === LEGACY_MODEL && !out.modelPicked) { out.model = DEFAULT_MODEL; }
   /* مهاجرت خودکار مدل‌های مردهٔ ذخیره‌شده به جایگزین سالم */
@@ -309,6 +319,12 @@ function loadSettings() {
   if (!['auto', 'always', 'off'].includes(out.webSearch)) out.webSearch = 'auto';
   if (!PROVIDERS[out.provider]) out.provider = 'cloudflare';
   if (!['auto', 'cloudflare', 'pollinations'].includes(out.imageEngine)) out.imageEngine = 'auto';
+  if (!['none','realistic','anime','digital','watercolor','pixel','render3d','gameart'].includes(out.imgStyle)) out.imgStyle = 'none';
+  if (!['night', 'ocean', 'light'].includes(out.theme)) out.theme = 'night';
+  out.fontScale = Math.min(1.25, Math.max(0.9, Number(out.fontScale) || 1));
+  out.anim = out.anim !== false;
+  out.gameBigRun = out.gameBigRun !== false;
+  out.runErrors = out.runErrors !== false;
   out.imageMode = !!out.imageMode;
   out.speakRate = Math.min(1.5, Math.max(0.6, Number(out.speakRate) || 1));
   out.agentTools = out.agentTools !== false;
@@ -870,6 +886,16 @@ function shouldSearch(text) {
   return SEARCH_HINTS.test(text);
 }
 
+/* دسته‌بندی خطاها برای «تست اتصال» مدیریت API */
+function errCat(msg) {
+  const m = String(msg || '');
+  if (/\[model-unavailable\]/.test(m)) return 'مدل';
+  if (/توکن نامعتبر|دسترسی رد شد|Authentication|auth/i.test(m)) return 'احراز هویت';
+  if (/محدودیت|rate limit|429/i.test(m)) return 'محدودیت درخواست';
+  if (/خطای شبکه|وصل شو|CORS|پل /.test(m)) return 'اتصال';
+  return 'نامشخص';
+}
+
 /* ---------- one-shot request used by "test connection" ---------- */
 function testConnection(cb) {
   const p0 = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
@@ -891,9 +917,9 @@ function testConnection(cb) {
         tryModel(alt, true, 'مدل «' + prettyModel(model) + '» روی این حساب فعال نیست — تست با «' + prettyModel(alt) + '»: ');
         return;
       }
-      if (err) cb(false, err);
-      else if (!acc.trim()) cb(false, 'اتصال برقرار شد ولی پاسخی دریافت نشد. (Account ID یا مدل را بررسی کنید)');
-      else cb(true, (note || '') + 'اتصال موفق ✓ — پاسخ مدل: ' + stripThink(acc).text.trim().slice(0, 120));
+      if (err) cb(false, 'خطای ' + errCat(err) + ': ' + err);
+      else if (!acc.trim()) cb(false, 'خطای پاسخ: اتصال برقرار شد ولی مدلی جواب نداد — مدل یا Account ID را بررسی کن.');
+      else cb(true, (note || '') + 'اتصال موفق ✓ — پاسخ واقعی مدل: ' + stripThink(acc).text.trim().slice(0, 120));
     });
   };
   tryModel(chosenModel(), false, '');
@@ -964,6 +990,7 @@ function renderMD(text) {
     const runnable = isRunnableCode(lang, rawCode);
     const runLabel = /<canvas|<html|<!DOCTYPE/i.test(rawCode) ? 'اجرای بازی' : 'اجرای کد';
     blocks.push(
+      (runnable && settings.gameBigRun !== false ? '<button type="button" class="run-banner"><svg class="ic ic-sm"><use href="#i-play"/></svg><span>' + runLabel + ' — همین‌جا اجرا کن</span></button>' : '') +
       '<div class="codeblock" data-cid="' + cid + '"><div class="code-bar">' +
       '<span class="lang" dir="ltr">' + esc(label) + '</span>' +
       '<span style="display:inline-flex;gap:6px">' +
@@ -1009,34 +1036,98 @@ function isRunnableCode(lang, rawCode) {
   if (/^(js|javascript)$/i.test(String(lang || ''))) return true;
   return /<html[\s>]|<!DOCTYPE|<canvas[\s>]|<body[\s>]/i.test(String(rawCode || ''));
 }
+const RUN_HOOK =
+  '<scr' + 'ipt>(function(){' +
+  'function send(m,l,s){try{parent.postMessage({__sukotRunError:{message:String(m).slice(0,600),line:l||0,stack:String(s||"").slice(0,600)}},"*");}catch(e){}}' +
+  'window.addEventListener("error",function(e){send(e.message,e.lineno,e.error&&e.error.stack);});' +
+  'window.addEventListener("unhandledrejection",function(e){var r=e.reason;send("Promise: "+((r&&r.message)||r),0,r&&r.stack);});' +
+  'var ce=console.error;console.error=function(){try{ce.apply(console,arguments);}catch(x){}' +
+  'send(Array.prototype.map.call(arguments,function(a){try{return typeof a==="object"?JSON.stringify(a).slice(0,200):String(a);}catch(y){return String(a);}}).join(" "),0,"");};' +
+  '})();</scr' + 'ipt>';
 function prepareRunHTML(code, lang) {
-  if (/^(html|htm)$/i.test(String(lang || '')) || /<html[\s>]|<!DOCTYPE/i.test(code)) {
+  let L = String(lang || '');
+  /* اگر زبان html است ولی کد اصلاً تگ HTML ندارد (مثلاً JS در ویرایشگر چسبیده)، آن را JS اجرا کن */
+  if (/^(html|htm)$/i.test(L) && !/<\w/.test(code)) L = 'js';
+  if (/^(html|htm)$/i.test(L) || /<html[\s>]|<!DOCTYPE/i.test(code)) {
     let h = code;
     if (!/<meta[^>]+viewport/i.test(h)) {
       if (/<head[^>]*>/i.test(h)) h = h.replace(/<head[^>]*>/i, (m) => m + '\n<meta name="viewport" content="width=device-width, initial-scale=1">');
       else h = '<meta name="viewport" content="width=device-width, initial-scale=1">\n' + h;
     }
+    if (/<head[^>]*>/i.test(h)) h = h.replace(/<head[^>]*>/i, (m) => m + RUN_HOOK);
+    else h = RUN_HOOK + h;
     return h;
   }
   return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
-    '<style>html,body{margin:0;background:#0c0716;color:#f0eaf9;font-family:monospace;padding:10px;white-space:pre-wrap}</style></head><body>' +
+    '<style>html,body{margin:0;background:#0c0716;color:#f0eaf9;font-family:monospace;padding:10px;white-space:pre-wrap}</style>' + RUN_HOOK + '</head><body>' +
     '<div id="sukot-run-err" style="color:#ff8fa0;white-space:pre-wrap"></div>' +
     '<scr' + 'ipt>window.onerror=function(m,s,l){var e=document.getElementById("sukot-run-err");if(e)e.textContent+="خطا: "+m+" (خط "+l+")\\n";return false;};</scr' + 'ipt>' +
     '<scr' + 'ipt>' + code + '</scr' + 'ipt></body></html>';
 }
 let runActiveLang = '';
+let runActiveCode = '';
+let runOriginalCode = '';
+let runErrSeen = null;
+function clearRunErrors() {
+  runErrSeen = null;
+  const box = $('#run-errors');
+  if (box) { box.classList.add('hidden'); $('#run-err-list').textContent = ''; }
+}
+function addRunError(e) {
+  if (settings.runErrors === false) return;
+  const line = (e.line ? ' (خط ' + e.line + ')' : '');
+  const key = e.message + '|' + e.line;
+  /* همان خطای تکراری پشت‌سرهم را فقط یک‌بار نشان بده */
+  if (runErrSeen === key) return;
+  runErrSeen = key;
+  const box = $('#run-errors');
+  box.classList.remove('hidden');
+  const pre = $('#run-err-list');
+  pre.textContent += (pre.textContent ? '\n' : '') + '• ' + e.message + line;
+  scrollBottom(false);
+}
+window.addEventListener('message', (ev) => {
+  try {
+    const d = ev && ev.data;
+    if (d && d.__sukotRunError && d.__sukotRunError.message) addRunError(d.__sukotRunError);
+  } catch (e) {}
+});
+function runCodeRaw(code, lang) {
+  runActiveCode = code;
+  if (!runOriginalCode) runOriginalCode = code;
+  clearRunErrors();
+  $('#run-frame').srcdoc = prepareRunHTML(code, lang);
+  $('#run-backdrop').classList.remove('hidden');
+  const ed = $('#run-editor');
+  if (ed && !ed.classList.contains('hidden')) $('#run-code').value = code;
+}
 function runCodeFromBlock(block) {
   const cid = block.dataset.cid;
   const raw = (cid && codeStore.has(cid)) ? codeStore.get(cid) : unescCode(block.querySelector('code').innerText);
   const langEl = block.querySelector('.lang');
   const lang = langEl ? langEl.textContent.trim().toLowerCase() : '';
   runActiveLang = lang;
-  $('#run-frame').srcdoc = prepareRunHTML(raw, lang);
-  $('#run-backdrop').classList.remove('hidden');
+  runOriginalCode = '';
+  runCodeRaw(raw, lang);
 }
 function closeRunOverlay() {
   $('#run-backdrop').classList.add('hidden');
   try { $('#run-frame').srcdoc = ''; } catch (e) {}
+  $('#run-editor').classList.add('hidden');
+  clearRunErrors();
+  runOriginalCode = '';
+}
+function fixGameWithSukot() {
+  const errs = ($('#run-err-list').textContent || '').slice(0, 600);
+  if (runActiveCode) {
+    pendingAttach.push({ kind: 'file', name: 'game.' + (/^(html|htm)$/.test(runActiveLang) ? 'html' : 'js'), text: runActiveCode.slice(0, 60000) });
+    renderAttachBar();
+  }
+  $('#input').value = 'این کد بازی موقع اجرا این خطا(ها) را داد:' + (errs ? '\n' + errs : '') + '\n\nلطفاً کد را پیدا و رفع کن و نسخهٔ کامل و اصلاح‌شدهٔ بازی را به‌صورت یک فایل HTML کامل بده تا دوباره اجرا کنم.';
+  autoGrow();
+  closeRunOverlay();
+  $('#input').focus();
+  toast('خطا و کد پیوست شد — ارسال بزن تا سوکوت تعمیرش کند');
 }
 
 /* ---------- clipboard (secure-context + legacy fallback for WebView file://) ---------- */
@@ -1728,6 +1819,27 @@ function cycleWebMode() {
 }
 
 /* ============================================================
+   v1.6.0: استودیوی ساخت عکس — سبک‌ها + گالری + API واقعی
+   ============================================================ */
+const IMG_STYLES = {
+  none: { label: 'بدون سبک', suffix: '' },
+  realistic: { label: 'واقع‌گرایانه', suffix: ', photorealistic, ultra detailed, sharp focus, cinematic lighting, 8k' },
+  anime: { label: 'انیمه', suffix: ', anime style, vibrant colors, clean line art, studio quality' },
+  digital: { label: 'دیجیتال آرت', suffix: ', digital painting, concept art, highly detailed, trending on artstation' },
+  watercolor: { label: 'آبرنگ', suffix: ', watercolor painting, soft brush strokes, paper texture, artistic' },
+  pixel: { label: 'پیکسل‌آرت', suffix: ', pixel art, 16-bit retro game style, crisp pixels' },
+  render3d: { label: 'سه‌بعدی', suffix: ', 3D render, octane render, volumetric lighting, high quality CGI' },
+  gameart: { label: 'آرت بازی', suffix: ', stylized game art, colorful game asset, concept art for video game' }
+};
+function applyLook() {
+  try {
+    document.body.dataset.theme = settings.theme || 'night';
+    document.body.style.setProperty('--msgfs', (14.5 * (Number(settings.fontScale) || 1)).toFixed(1) + 'px');
+    document.body.classList.toggle('no-anim', settings.anim === false);
+  } catch (e) {}
+}
+
+/* ============================================================
    v1.5.0: ساخت عکس (مثل ChatGPT) + ارسال one-shot برای همهٔ محیط‌ها
    ============================================================ */
 function oneShotPost(url, headers, bodyStr, timeoutMs) {
@@ -1978,6 +2090,141 @@ function updateImageBtn() {
   b.classList.toggle('mode-img', on);
 }
 
+/* ---------- استودیوی ساخت عکس (v1.6.0) ---------- */
+let studioStyle = 'none';
+let studioBusy = false;
+function openStudio() {
+  renderStudioRecent();
+  $('#studio-backdrop').classList.remove('hidden');
+  setTimeout(() => { try { $('#studio-prompt').focus(); } catch (e) {} }, 60);
+}
+function closeStudio() { $('#studio-backdrop').classList.add('hidden'); }
+function collectRecentImages() {
+  const out = [];
+  for (const c of chats) {
+    for (let i = c.msgs.length - 1; i >= 0; i--) {
+      const m = c.msgs[i];
+      if (m.r === 'assistant' && m.img) out.push(m);
+      if (out.length >= 12) return out;
+    }
+  }
+  return out;
+}
+function renderStudioRecent() {
+  const box = $('#studio-recent');
+  const items = collectRecentImages();
+  if (!items.length) {
+    box.innerHTML = '<div class="mem-empty" style="padding:10px 0">هنوز عکی نساخته‌ای — اولین عکست را بساز!</div>';
+    return;
+  }
+  box.innerHTML = items.map((m, i) =>
+    '<button type="button" class="recent-thumb" data-i="' + i + '"><img src="' + esc(m.img) + '" alt="عکس ساخته‌شده" loading="lazy"></button>'
+  ).join('');
+  box.querySelectorAll('.recent-thumb').forEach((b) => {
+    b.addEventListener('click', () => {
+      const m = items[+b.dataset.i];
+      showStudioResult(m.img, m.c || 'عکس ساخته‌شده', false);
+    });
+  });
+}
+function showStudioResult(src, caption, withAttach) {
+  const box = $('#studio-result');
+  box.classList.remove('hidden');
+  const canAttach = String(src).indexOf('data:') === 0 && withAttach;
+  box.innerHTML =
+    '<div class="gen-img-wrap"><img class="gen-img" src="' + esc(src) + '" alt="تصویر ساخته‌شده"></div>' +
+    '<p class="gen-caption">' + esc(caption || '') + '</p>' +
+    '<div class="img-actions">' +
+    '<button type="button" class="st-save"><svg class="ic"><use href="#i-download"/></svg><span>ذخیرهٔ تصویر</span></button>' +
+    '<button type="button" class="st-open"><svg class="ic"><use href="#i-expand"/></svg><span>بزرگ‌نمایی</span></button>' +
+    (canAttach ? '<button type="button" class="st-attach"><svg class="ic"><use href="#i-paperclip"/></svg><span>پیوست به گفتگو</span></button>' : '') +
+    '<button type="button" class="st-again"><svg class="ic"><use href="#i-bolt"/></svg><span>ساخت دوباره</span></button>' +
+    '</div>';
+  box.querySelector('.st-save').addEventListener('click', () => saveGeneratedImage(src));
+  box.querySelector('.st-open').addEventListener('click', () => openImageSrc(src));
+  const ab = box.querySelector('.st-attach');
+  if (ab) ab.addEventListener('click', () => attachStudioImage(src));
+  box.querySelector('.st-again').addEventListener('click', () => studioGenerate(true));
+}
+function attachStudioImage(dataUrl) {
+  const im = new Image();
+  im.onload = () => {
+    pendingAttach.push({
+      kind: 'image', name: 'studio-' + Date.now() + '.jpg',
+      api: canvasResize(im, IMG_API_MAX, 0.85), thumb: canvasResize(im, IMG_THUMB_MAX, 0.72)
+    });
+    renderAttachBar();
+    closeStudio();
+    toast('تصویر پیوست شد — حالا درباره‌اش بپرس');
+  };
+  im.onerror = () => toast('پیوست این تصویر ممکن نشد', true);
+  im.src = dataUrl;
+}
+async function studioGenerate(again) {
+  if (studioBusy) return;
+  const promptEl = $('#studio-prompt');
+  const text = (again ? (studioGenerate._last || '') : promptEl.value.trim()) || promptEl.value.trim();
+  if (!text) { toast('اول بنویس چه تصویری بسازم', true); return; }
+  if (!again) studioGenerate._last = text;
+  studioBusy = true;
+  const goBtn = $('#btn-studio-go');
+  goBtn.classList.add('busy');
+  goBtn.innerHTML = '<svg class="ic brush"><use href="#i-brush"/></svg><span>در حال ساخت…</span>';
+  const st = $('#studio-status');
+  st.className = 'test-result';
+  st.textContent = 'دارم تصویر را با هوش مصنوعی واقعی می‌سازم… (۱۰ تا ۴۰ ثانیه)';
+  $('#studio-result').classList.add('hidden');
+
+  const style = IMG_STYLES[studioStyle] || IMG_STYLES.none;
+  const full = text + (style.suffix || '');
+  const engine = pickImageEngine();
+  let src = null, via = '', err = null;
+  const attempt = async (eng) => {
+    if (eng === 'cloudflare') {
+      const promptEn = await translatePrompt(text);
+      src = await cfImage((promptEn || text) + (style.suffix || ''));
+      via = 'cloudflare';
+      return;
+    }
+    /* نشانی یکتا با seed تصادفی — همان نشانیِ preload نمایش داده می‌شود (کش فوری) */
+    const pUrl = pollinationsURL(full, Math.floor(Math.random() * 99999));
+    await preloadImage(pUrl);
+    src = pUrl;
+    via = 'pollinations';
+  };
+  try { await attempt(engine); }
+  catch (e1) {
+    const other = engine === 'cloudflare' ? 'pollinations' : (cfReady() ? 'cloudflare' : null);
+    if (!other) {
+      err = (e1 && e1.body && e1.status ? friendlyError(e1.status, e1.body) : (e1 && e1.message) || 'ساخت تصویر ممکن نشد');
+    } else {
+      st.textContent = 'موتور اول در دسترس نبود؛ با موتور رایگان جایگزین تلاش می‌کنم…';
+      try { await attempt(other); }
+      catch (e2) { err = (e2 && e2.body && e2.status ? friendlyError(e2.status, e2.body) : (e2 && e2.message) || 'ساخت تصویر ممکن نشد'); }
+    }
+  }
+
+  studioBusy = false;
+  goBtn.classList.remove('busy');
+  goBtn.innerHTML = '<svg class="ic"><use href="#i-brush"/></svg><span>بساز!</span>';
+  if (err || !src) {
+    st.className = 'test-result err';
+    st.textContent = '⚠️ ساخت تصویر ناموفق بود — ' + err + ' (اتصال اینترنت را بررسی کن یا در «مدیریت API» کلادفلر را تنظیم کن)';
+    return;
+  }
+  st.className = 'test-result ok';
+  st.textContent = '✓ تصویر با ' + (IMG_ENGINE_NAME[via] || via) + ' ساخته شد.';
+  showStudioResult(src, 'سبک: ' + (style.label || 'بدون سبک') + ' · موتور: ' + (IMG_ENGINE_NAME[via] || via), true);
+  /* ثبت در تاریخچهٔ گفتگو تا در گالری و گفتگوها بماند */
+  let c = currentChat();
+  if (!c) { newChat(); c = currentChat(); }
+  const msgRef = { r: 'assistant', c: 'تصویر استودیو — «' + text.slice(0, 80) + '» · سبک: ' + (style.label || 'بدون سبک'), img: src, via: via };
+  c.msgs.push(msgRef);
+  saveChats(chats);
+  if (String(src).indexOf('data:') === 0) storeThumbAsync(src, msgRef);
+  renderStudioRecent();
+}
+
 /* ---------- settings modal ---------- */
 let modalProvider = 'cloudflare';
 
@@ -2041,7 +2288,7 @@ function rebuildModelSelect() {
 function openSettings() {
   modalProvider = settings.provider || 'cloudflare';
   $('#set-provider').value = modalProvider;
-  switchTab('conn');
+  switchTab('general');
   $('#set-token').value = settings.token;
   $('#set-account').value = settings.account;
   $('#set-base').value = settings.base;
@@ -2057,6 +2304,13 @@ function openSettings() {
   $('#rate-val').textContent = settings.speakRate || 1;
   $('#set-ttsfallback').checked = settings.ttsFallback !== false;
   $('#set-imgengine').value = settings.imageEngine || 'auto';
+  $('#set-imgstyle').value = settings.imgStyle || 'none';
+  $('#set-theme').value = settings.theme || 'night';
+  $('#set-font').value = settings.fontScale || 1;
+  $('#font-val').textContent = Math.round((settings.fontScale || 1) * 100) + '٪';
+  $('#set-anim').checked = settings.anim !== false;
+  $('#set-runerrors').checked = settings.runErrors !== false;
+  $('#set-gamebigrun').checked = settings.gameBigRun !== false;
   refreshVoiceList();
   $('#test-result').textContent = ''; $('#test-result').className = 'test-result';
   $('#settings-backdrop').classList.remove('hidden');
@@ -2083,15 +2337,27 @@ function readSettingsFromModal() {
     voice: $('#set-voice').value || '',
     ttsFallback: $('#set-ttsfallback').checked,
     imageEngine: $('#set-imgengine').value || 'auto',
+    imgStyle: $('#set-imgstyle').value || 'none',
+    theme: $('#set-theme').value || 'night',
+    fontScale: Number($('#set-font').value) || 1,
+    anim: $('#set-anim').checked,
+    runErrors: $('#set-runerrors').checked,
+    gameBigRun: $('#set-gamebigrun').checked,
     cat: settings.cat,
     modelPicked: true
   };
 }
 
+function saveFromStudioDefaults() {
+  /* سبک انتخابی استودیو را هم در تنظیمات نگه دار */
+  const v = $('#set-imgstyle');
+  if (v) { settings.imgStyle = v.value || 'none'; saveSettings(settings); }
+}
 function saveFromModal() {
   settings = readSettingsFromModal();
   saveSettings(settings);
-  refreshStatus(); updateWebBtn(); closeSettings();
+  applyLook();
+  refreshStatus(); updateWebBtn(); updateImageBtn(); closeSettings();
   toast('تنظیمات ذخیره شد');
   liveCheck();
 }
@@ -2207,6 +2473,22 @@ function autoGrow() {
   t.style.height = Math.min(t.scrollHeight, 140) + 'px';
 }
 
+/* تأیید دومرحله‌ای برای کارهای خطرناک (confirm() در WebView کار نمی‌کند) */
+function armTwoStep(btn, action) {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.armed === '1') {
+      btn.dataset.armed = '0';
+      btn.innerHTML = btn.dataset.orig || btn.innerHTML;
+      action();
+      return;
+    }
+    btn.dataset.orig = btn.innerHTML;
+    btn.dataset.armed = '1';
+    btn.innerHTML = '<svg class="ic"><use href="#i-alert"/></svg><span>مطمئنی؟ دوباره بزن</span>';
+    setTimeout(() => { if (btn.dataset.armed === '1') { btn.dataset.armed = '0'; btn.innerHTML = btn.dataset.orig; } }, 3500);
+  });
+}
+
 /* ---------- boot ---------- */
 function boot() {
   $('#btn-new-chat').addEventListener('click', newChat);
@@ -2254,22 +2536,82 @@ function boot() {
     b.addEventListener('click', () => switchTab(b.dataset.tab));
   });
 
-  /* حالت ساخت عکس (مثل ChatGPT) */
+  /* حالت ساخت عکس (مثل ChatGPT) + استودیو */
   $('#btn-image').addEventListener('click', () => {
     settings.imageMode = !settings.imageMode;
+    settings.imgStyle = $('#set-imgstyle') ? ($('#set-imgstyle').value || 'none') : settings.imgStyle;
     saveSettings(settings);
     updateImageBtn();
     toast(settings.imageMode ? 'حالت ساخت عکس روشن شد — بنویس چه عکسی بسازم 🎨' : 'حالت ساخت عکس خاموش شد — به حالت گفتگو برگشتم');
   });
+  $('#btn-open-studio').addEventListener('click', () => { saveFromStudioDefaults(); closeSettings(); openStudio(); });
+  $('#btn-close-studio').addEventListener('click', closeStudio);
+  $('#studio-backdrop').addEventListener('click', (e) => { if (e.target.id === 'studio-backdrop') closeStudio(); });
+  $('#btn-studio-go').addEventListener('click', () => studioGenerate(false));
+  document.querySelectorAll('#studio-styles .style-chip').forEach((b) => {
+    b.addEventListener('click', () => {
+      studioStyle = b.dataset.style;
+      document.querySelectorAll('#studio-styles .style-chip').forEach((x) => x.classList.toggle('active', x === b));
+    });
+  });
+
+  /* ظاهر و تم */
+  $('#set-font').addEventListener('input', () => {
+    $('#font-val').textContent = Math.round($('#set-font').value * 100) + '٪';
+  });
+
+  /* مدیریت API: حذف API ذخیره‌شده (تأیید دومرحله‌ای) */
+  armTwoStep($('#btn-api-delete'), () => {
+    settings.token = ''; settings.account = ''; settings.base = '';
+    saveSettings(settings);
+    $('#set-token').value = ''; $('#set-account').value = ''; $('#set-base').value = '';
+    refreshStatus();
+    toast('کلید و حساب ذخیره‌شده حذف شد');
+  });
+
+  /* امنیت و حریم خصوصی */
+  armTwoStep($('#btn-clear-chats'), () => {
+    chats = []; currentId = null;
+    try { store.removeItem(LS_CHAT); } catch (e) {}
+    newChat();
+    toast('همهٔ گفتگوها پاک شد', true);
+  });
+  armTwoStep($('#btn-clear-mem'), () => {
+    memories = [];
+    try { store.removeItem(LS_MEM); } catch (e) {}
+    toast('حافظهٔ بلندمدت پاک شد', true);
+  });
+  armTwoStep($('#btn-clear-all'), () => {
+    try { store.removeItem(LS_CHAT); store.removeItem(LS_MEM); store.removeItem(LS_SET); } catch (e) {}
+    location.reload();
+  });
+
+  /* اجرای زنده: ویرایشگر + رفع خطا */
+  $('#btn-run-edit').addEventListener('click', () => {
+    const ed = $('#run-editor');
+    const show = ed.classList.contains('hidden');
+    ed.classList.toggle('hidden', !show);
+    if (show) $('#run-code').value = runActiveCode || '';
+  });
+  $('#btn-ed-run').addEventListener('click', () => {
+    const v = $('#run-code').value;
+    if (!v.trim()) { toast('کد خالی است', true); return; }
+    runCodeRaw(v, runActiveLang);
+  });
+  $('#btn-ed-reset').addEventListener('click', () => {
+    if (runOriginalCode) {
+      runCodeRaw(runOriginalCode, runActiveLang);
+      $('#run-code').value = runOriginalCode;
+      toast('کد اصلی بازگردانده شد');
+    }
+  });
+  $('#btn-run-fix').addEventListener('click', fixGameWithSukot);
 
   /* اجرای زندهٔ بازی/کد */
   $('#btn-run-close').addEventListener('click', closeRunOverlay);
   $('#run-backdrop').addEventListener('click', (e) => { if (e.target.id === 'run-backdrop') closeRunOverlay(); });
   $('#btn-run-reload').addEventListener('click', () => {
-    const f = $('#run-frame');
-    const doc = f.srcdoc;
-    f.srcdoc = '';
-    setTimeout(() => { f.srcdoc = doc; }, 40);
+    runCodeRaw(runActiveCode || '', runActiveLang);
   });
   $('#btn-run-full').addEventListener('click', () => {
     const el = $('#run-frame');
@@ -2373,7 +2715,9 @@ function boot() {
 
   document.querySelectorAll('.suggestion').forEach((b) => b.addEventListener('click', () => send(b.textContent)));
 
-  markCatCards(); updateWebBtn(); updateImageBtn();
+  markCatCards(); updateWebBtn(); updateImageBtn(); applyLook();
+  studioStyle = settings.imgStyle || 'none';
+  document.querySelectorAll('#studio-styles .style-chip').forEach((x) => x.classList.toggle('active', x.dataset.style === studioStyle));
   renderChatList(); renderMessages(); refreshStatus(); autoGrow();
   liveCheck();
 
