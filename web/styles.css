@@ -711,3 +711,9 @@ body.no-anim .petals{display:none}
   .run-editor{width:100%;min-width:0;max-height:38vh}
   .studio-recent{grid-template-columns:repeat(3,1fr)}
 }
+
+/* ===== v1.7.0: نشان سوییچ خودکار سرویس ===== */
+.prov-note{
+  display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px 10px;
+  border-radius:10px;background:rgba(61,220,151,.12);color:var(--ok);font-size:12px;
+}

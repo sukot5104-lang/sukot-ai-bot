@@ -1,31 +1,28 @@
 /* ============================================================
-   سوکوت AI (Sukot AI) v1.6.0 — Persian AI chatbot
-   powered by Cloudflare Workers AI · Pollinations · Groq · Gemini · OpenRouter
+   سوکوت AI (Sukot AI) v1.7.0 — Persian AI chatbot
+   powered by TokenRouter · Cloudflare · Pollinations · Groq · Gemini · OpenRouter
 
-   v1.6.0 highlights
-   - استودیوی حرفه‌ای ساخت عکس: سبک‌ها (واقع‌گرایانه/انیمه/آبرنگ/پیکسل…)، گالری ساخته‌های اخیر،
-     ذخیره و پیوست تصویر به گفتگو — با API واقعی (Flux کلادفلر + پولینیشن رایگان)
-   - اجرای زندهٔ بازی سطح بالا: نمایش خطاهای اجرا + دکمهٔ «رفع خطا با سوکوت» + ویرایشگر کد و اجرای مجدد
-   - بخش مستقل «مدیریت API»: کلید/Base URL/مدل/تست اتصال با خطاهای دسته‌بندی‌شده + حذف API ذخیره‌شده
-   - تنظیمات ۸ بخشی: عمومی · ظاهر و تم (۳ تم واقعی + اندازهٔ متن) · مدل · مدیریت API ·
-     ساخت عکس · بازی‌سازی · امنیت و حریم خصوصی · درباره
-   - ساخت عکس مثل ChatGPT: دکمهٔ عکس کنار نوشتار → Flux روی کلادفلر یا
-     موتور رایگان پولینیشن (بدون کلید و بدون ثبت‌نام، در همهٔ پلتفرم‌ها) + ذخیرهٔ عکس
-   - استودیوی بازی‌سازی: دستیار مخصوص بازی + دکمهٔ «اجرای بازی» روی بلوک کد —
-     بازی ساخته‌شده همان‌جا در محیط ایزتهٔ امن (sandbox iframe) اجرا می‌شود
-   - سرویس‌های رایگان بدون کارت بانکی: پولینیشن (بدون کلید)، Groq، Google Gemini
-   - تنظیمات ۵ تب شد: اتصال/API خارجی · ساخت عکس · جستجو و ابزار · صدا · پاسخ و شخصیت
-   - بخش مخصوص API خارجی (هر سرویس سازگار با OpenAI) + دستیار بازی‌سازی + مدل‌های تازه
-   - املای درست نام: «سوکوت»
+   v1.7.0 highlights
+   - اتصال به API خارجی TokenRouter با کلید شخصی (Claude Opus 5.5 / GPT 5.6 Luna / GPT 5.4 Nano / Gemini 3.5 Flash)
+     — کلید و آدرس از قبل تنظیم است، فقط اجرا کن
+   - سوییچ خودکار بین سرویس‌ها: اگر موجودی/اتصال یک سرویس خراب بود، خودکار به پولینیشن رایگان می‌رود — دیگر هیچ‌وقت ارور نهایی نمی‌بینی
+   - خطاهای جدید دسته‌بندی‌شده: insufficient_user_quota (اتمام موجودی)، ربات‌گیر 1010، no-access → سوییچ خودکار + پیام فارسی روشن
+   - رفع باگ سوییچ پروایدر در مدیریت API (شناسهٔ خراب PROVIDERSodalProvider)
+   + تمام قابلیت‌های v1.6.0: استودیوی عکس، اجرای زندهٔ بازی، تنظیمات ۸ بخشی، ۳ تم
    ============================================================ */
 'use strict';
 
 /* ---------- constants ---------- */
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 const CREATOR = 'Sukot';
 const DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const LEGACY_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
 const SEARCH_UA = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
+
+/* — سرویس خارجی شخصی کاربر (TokenRouter): کلید و آدرس پیش‌فرض — */
+const TR_DEFAULT_BASE = 'https://api.tokenrouter.com/v1';
+const TR_DEFAULT_KEY = 'sk-8X3lzcfPo6Pg4cDNGk30AyHiInYNZ68fToVsUluP6SGkC6xG';
+const TR_DEFAULT_MODEL = 'anthropic/claude-opus-5-5-advance-ai';
 
 const LS_SET = 'sukot_ai_settings_v1';
 const LS_CHAT = 'sukot_ai_chats_v1';
@@ -219,8 +216,25 @@ function fallbackModel(dead) {
   return '@cf/openai/gpt-oss-120b';
 }
 
-/* ---------- پروایدرها: کلادفلر / Z.ai GLM / OpenRouter / دلخواه ---------- */
+/* ---------- پروایدرها: TokenRouter / کلادفلر / رایگان‌ها / دلخواه ---------- */
 const PROVIDERS = {
+  tokenrouter: {
+    name: 'TokenRouter',
+    tokenUrl: 'کلید شخصی تو از قبل تنظیم شده — در باکس «API خارجی شخصی» قابل تغییر است',
+    needsAccount: false,
+    needsToken: false, /* کلید در extToken جدا ذخیره می‌شود و از قبل پر است */
+    endpoint: (s) => {
+      let b = (s.extBase || TR_DEFAULT_BASE).trim().replace(/\/+$/, '');
+      if (!/chat\/completions$/.test(b)) b += /\/v\d+$/.test(b) ? '/chat/completions' : '/v1/chat/completions';
+      return b;
+    },
+    models: {
+      'anthropic/claude-opus-5-5-advance-ai': 'Claude Opus 5.5 Advance — قوی‌ترین مغز (پیشنهادی)',
+      'openai/gpt-5.6-luna': 'GPT 5.6 Luna — نسل جدید OpenAI',
+      'openai/gpt-5.4-nano': 'GPT 5.4 Nano — سریع و سبک',
+      'google/gemini-3.5-flash-lite': 'Gemini 3.5 Flash Lite — سریع گوگل'
+    }
+  },
   cloudflare: {
     name: 'Cloudflare Workers AI',
     tokenUrl: 'dash.cloudflare.com → Workers AI → Use REST API',
@@ -302,7 +316,8 @@ function loadSettings() {
   try { s = JSON.parse(store.getItem(LS_SET) || '{}'); } catch (e) {}
   const out = Object.assign({
     token: '', account: '', base: '',
-    provider: 'cloudflare',
+    extToken: TR_DEFAULT_KEY, extBase: TR_DEFAULT_BASE, extModel: TR_DEFAULT_MODEL,
+    provider: 'tokenrouter',
     model: DEFAULT_MODEL, modelCustom: '',
     sys: '', temp: 0.7, style: 'detailed',
     cat: 'general', webSearch: 'auto', autoSpeak: false, speakRate: 1,
@@ -311,13 +326,23 @@ function loadSettings() {
     theme: 'night', fontScale: 1, anim: true,
     gameBigRun: true, runErrors: true
   }, s);
+  /* مهاجرت یک‌باره به TokenRouter (کلید شخصی کاربر) — بقیهٔ تنظیمات حفظ می‌شود */
+  if (!out.trMigrated) {
+    out.trMigrated = true;
+    if (!out.extToken) out.extToken = TR_DEFAULT_KEY;
+    if (!out.extBase) out.extBase = TR_DEFAULT_BASE;
+    out.provider = 'tokenrouter';
+    out.model = TR_DEFAULT_MODEL;
+  }
+  if (!out.extToken) out.extToken = TR_DEFAULT_KEY;
+  if (!out.extBase) out.extBase = TR_DEFAULT_BASE;
   if (out.model === LEGACY_MODEL && !out.modelPicked) { out.model = DEFAULT_MODEL; }
   /* مهاجرت خودکار مدل‌های مردهٔ ذخیره‌شده به جایگزین سالم */
   if (out.model && DEAD_MODELS[out.model]) { out.model = DEAD_MODELS[out.model]; }
   if (!STYLES[out.style]) out.style = 'detailed';
   if (!CATEGORIES[out.cat]) out.cat = 'general';
   if (!['auto', 'always', 'off'].includes(out.webSearch)) out.webSearch = 'auto';
-  if (!PROVIDERS[out.provider]) out.provider = 'cloudflare';
+  if (!PROVIDERS[out.provider]) out.provider = 'tokenrouter';
   if (!['auto', 'cloudflare', 'pollinations'].includes(out.imageEngine)) out.imageEngine = 'auto';
   if (!['none','realistic','anime','digital','watercolor','pixel','render3d','gameart'].includes(out.imgStyle)) out.imgStyle = 'none';
   if (!['night', 'ocean', 'light'].includes(out.theme)) out.theme = 'night';
@@ -612,6 +637,17 @@ function friendlyError(status, bodyText) {
       return '[model-unavailable] این مدل بازنشسته یا حذف شده است — سوکوت خودکار با مدل پایدار جایگزین ادامه می‌دهد.';
     }
     return '[model-unavailable] این مدل روی این حساب در دسترس نیست (نیاز به تأیید لایسنس در پنل کلادفلر دارد) — سوکوت خودکار با مدل پایدار ادامه می‌دهد.';
+  }
+
+  /* موجودی/دسترسی سرویس → سوییچ خودکار به سرویس بعدی (پولینیشن رایگان) */
+  if (/insufficient_user_quota|gift balance|remaining eligible quota/i.test(msg) || /insufficient/i.test(String(code))) {
+    return '[provider-quota] موجودی این سرویس برای این مدل تمام شده است — سوکوت خودکار به سرویس رایگان سوییچ می‌کند.';
+  }
+  if (/error code: 1010/i.test(msg)) {
+    return '[provider-quota] این سرویس درخواست را مسدود کرد (پشتیبان ربات‌گیر) — سوکوت خودکار به سرویس رایگان سوییچ می‌کند.';
+  }
+  if (/no access to model|This token has no access/i.test(msg)) {
+    return '[provider-quota] کلید فعلی به این مدل دسترسی ندارد — سوکوت خودکار به سرویس رایگان سوییچ می‌کند.';
   }
 
   if (code === 9109 || /location/i.test(msg)) {
@@ -917,17 +953,41 @@ function testConnection(cb) {
         tryModel(alt, true, 'مدل «' + prettyModel(model) + '» روی این حساب فعال نیست — تست با «' + prettyModel(alt) + '»: ');
         return;
       }
+      /* موجودی/دسترسی سرویس؟ با سرویس رایگان پولینیشن تست کن */
+      if (err && err.indexOf('[provider-quota]') !== -1 && !provRetried) {
+        provRetried = true;
+        activeProvider = 'pollinations';
+        const body2 = { model: chosenModel('pollinations'), stream: true, max_tokens: 60, messages: [{ role: 'user', content: 'سلام! فقط بگو: اتصال برقرار است' }] };
+        let acc2 = '';
+        streamRequest(apiUrl('pollinations'), apiHeaders('pollinations'), body2, (t2) => { acc2 += t2; }, (err2) => {
+          activeProvider = null;
+          if (!err2 && acc2.trim()) cb(true, note + 'موجودی «' + p0.name + '» کافی نیست ولی سرویس رایگان پولینیشن سبز است ✓ — پاسخ: ' + stripThink(acc2).text.trim().slice(0, 100));
+          else cb(false, err);
+        });
+        return;
+      }
       if (err) cb(false, 'خطای ' + errCat(err) + ': ' + err);
       else if (!acc.trim()) cb(false, 'خطای پاسخ: اتصال برقرار شد ولی مدلی جواب نداد — مدل یا Account ID را بررسی کن.');
-      else cb(true, (note || '') + 'اتصال موفق ✓ — پاسخ واقعی مدل: ' + stripThink(acc).text.trim().slice(0, 120));
+      else { activeProvider = null; cb(true, (note || '') + 'اتصال موفق ✓ — پاسخ واقعی مدل: ' + stripThink(acc).text.trim().slice(0, 120)); }
     });
   };
+  let provRetried = false;
   tryModel(chosenModel(), false, '');
 }
 
-/* ---------- API URL / config (multi-provider) ---------- */
-function apiUrl() {
+/* ---------- API URL / config (multi-provider + زنجیرهٔ سوییچ خودکار) ---------- */
+let activeProvider = null; /* هنگام فالبک سرویس، سرویسِ فعال اینجا نگه داشته می‌شود */
+function curProvider() { return activeProvider || settings.provider || 'cloudflare'; }
+function providerChain() {
+  const chain = [settings.provider];
+  if (settings.provider !== 'pollinations') chain.push('pollinations'); /* نگهبان رایگانِ آخر */
+  return chain;
+}
+function apiUrl(p) {
   const s = settings;
+  const pid = p || curProvider();
+  /* سرویس خارجی شخصی (TokenRouter) آدرس مخصوص خودش را دارد */
+  if (pid === 'tokenrouter') return (PROVIDERS.tokenrouter.endpoint)(s);
   /* override دستی همیشه اولویت دارد (برای تست/سرویس دلخواه) */
   if (s.base && s.base.trim()) {
     let b = s.base.trim().replace(/\/+$/, '');
@@ -936,23 +996,33 @@ function apiUrl() {
     }
     return b;
   }
-  const p = PROVIDERS[s.provider] || PROVIDERS.cloudflare;
-  const url = p.endpoint(s);
+  const prov = PROVIDERS[pid] || PROVIDERS.cloudflare;
+  const url = prov.endpoint(s);
   if (url) return url;
   return (s.modelCustom || '').trim() ? '' : url;
 }
-function apiHeaders() {
+function apiHeaders(p) {
+  const pid = p || curProvider();
   const h = { 'Content-Type': 'application/json' };
   /* پولینیشن بدون کلید کار می‌کند — هدر احراز فقط وقتی توکن هست */
-  if (settings.token && settings.token.trim()) h['Authorization'] = 'Bearer ' + settings.token.trim();
+  const tok = pid === 'tokenrouter' ? (settings.extToken || TR_DEFAULT_KEY).trim() : (settings.token || '').trim();
+  if (tok) h['Authorization'] = 'Bearer ' + tok;
   return h;
 }
-function chosenModel() {
+function chosenModel(p) {
+  const pid = p || curProvider();
+  if (pid === 'tokenrouter') {
+    const ids = Object.keys(PROVIDERS.tokenrouter.models);
+    return ids.indexOf(settings.model) !== -1 ? settings.model : TR_DEFAULT_MODEL;
+  }
+  if (pid === 'pollinations') return 'openai-fast';
   return settings.model === 'custom' ? (settings.modelCustom || '').trim() : settings.model;
 }
 function prettyModel(id) {
   if (!id) return '—';
   if (MODEL_NAMES[id]) return MODEL_NAMES[id];
+  if (PROVIDERS.tokenrouter.models[id]) return PROVIDERS.tokenrouter.models[id].split('—')[0].trim();
+  if (id === 'openai-fast') return 'مغز رایگان پولینیشن';
   return id.length > 26 ? id.slice(0, 26) + '…' : id;
 }
 
@@ -1675,20 +1745,23 @@ async function send(textRaw) {
     scrollBottom(false);
   };
 
-  /* — حلقهٔ عامل: حداکثر ۴ دور (ابزار / ادامهٔ پاسخ بریده / فالبک مدل) — */
+  /* — حلقهٔ عامل: حداکثر ۶ دور (ابزار / ادامهٔ پاسخ بریده / فالبک مدل / سوییچ سرویس) — */
   let full = '';
   let finalErr = null;
   let fellBack = false;
-  for (let round = 0; round < 4; round++) {
+  const chain = providerChain();
+  let ci = 0;
+  activeProvider = chain[0];
+  for (let round = 0; round < 6; round++) {
     let acc = '';
     finalErr = await new Promise((resolve) => {
       const body = {
-        model: chosenModel(), stream: true,
+        model: chosenModel(activeProvider), stream: true,
         temperature: Number(settings.temp) || 0.7,
         max_tokens: maxTokens,
         messages: messages
       };
-      activeStream = streamRequest(apiUrl(), apiHeaders(), body,
+      activeStream = streamRequest(apiUrl(activeProvider), apiHeaders(activeProvider), body,
         (delta) => { acc += delta; renderAcc(stripThink(full + acc).thinking ? full + acc : acc); },
         (err) => { activeStream = null; resolve(err); }
       );
@@ -1703,10 +1776,22 @@ async function send(textRaw) {
     /* مدل در دسترس نبود (بازنشسته/لایسنس/پلن)؟ یک بار خودکار با مدل پایدار ادامه بده */
     if (finalErr && finalErr.indexOf('[model-unavailable]') !== -1 && !fellBack) {
       fellBack = true;
-      const dead = chosenModel();
-      settings.model = fallbackModel(dead);
-      saveSettings(settings); refreshStatus();
-      w.querySelector('.bubble').innerHTML = toolNoteHTML('مدل «' + prettyModel(dead) + '» روی این حساب در دسترس نبود — خودکار با «' + prettyModel(settings.model) + '» ادامه می‌دهم…');
+      const dead = chosenModel(activeProvider);
+      const alt = fallbackModel(dead);
+      if (activeProvider === 'cloudflare') {
+        settings.model = alt;
+        saveSettings(settings); refreshStatus();
+      }
+      w.querySelector('.bubble').innerHTML = toolNoteHTML('مدل «' + prettyModel(dead) + '» روی این سرویس در دسترس نبود — خودکار با «' + prettyModel(alt) + '» ادامه می‌دهم…');
+      scrollBottom(false);
+      round--; continue;
+    }
+
+    /* موجودی/دسترسی/اتصال سرویس خراب؟ سوییچ خودکار به سرویس بعدی زنجیره */
+    if (finalErr && (finalErr.indexOf('[provider-quota]') !== -1 || /خطای شبکه|اتصال به سرور/i.test(finalErr)) && ci < chain.length - 1) {
+      ci++;
+      activeProvider = chain[ci];
+      w.querySelector('.bubble').innerHTML = toolNoteHTML('سوییچ خودکار به سرویس «' + (PROVIDERS[activeProvider] || {}).name + '» — دارم جواب را از راه رایگان می‌گیرم…');
       scrollBottom(false);
       round--; continue;
     }
@@ -1741,19 +1826,25 @@ async function send(textRaw) {
   }
 
   activeStream = null; setBusy(false); sendLock = false;
+  const usedProvider = activeProvider;
+  activeProvider = null; /* نوبت بعد: سرویس اصلی کاربر */
   const bubble = w.querySelector('.bubble');
   let vFinal = stripThink(full).text;
   if (searchResults && searchResults.length && vFinal && !/منابع|source/i.test(vFinal)) {
     vFinal += '\n\n**منابع:**\n' + searchResults.slice(0, 6).map((r, i) => '- [' + (i + 1) + '] [' + r.title + '](' + r.url + ')').join('\n');
   }
   const finalText = fixPersian(vFinal || '');
+  let provNote = '';
+  if (usedProvider && usedProvider !== settings.provider && !finalErr && finalText.trim()) {
+    provNote = '<p class="prov-note"><svg class="ic ic-sm"><use href="#i-bolt"/></svg><span>این پاسخ با سرویس «' + esc((PROVIDERS[usedProvider] || {}).name || '') + '» داده شد (سوییچ خودکار).</span></p>';
+  }
   if (finalErr) {
     if (!finalText.trim()) bubble.innerHTML = errorHTML(finalErr);
-    else bubble.innerHTML = renderMD(finalText) + '<p style="color:var(--err);font-size:12px;margin-top:6px">' + esc(finalErr) + '</p>';
+    else bubble.innerHTML = renderMD(finalText) + provNote + '<p style="color:var(--err);font-size:12px;margin-top:6px">' + esc(finalErr) + '</p>';
   } else if (!finalText.trim()) {
     bubble.innerHTML = errorHTML('پاسخی دریافت نشد — مدل و تنظیمات اتصال را در تنظیمات بررسی کنید.');
   } else {
-    bubble.innerHTML = renderMD(finalText);
+    bubble.innerHTML = renderMD(finalText) + provNote;
   }
   if (searchResults) showSources(w, searchResults);
   w.dataset.raw = finalText;
@@ -2235,14 +2326,17 @@ function switchTab(id) {
 function applyProviderUI() {
   const p = PROVIDERS[modalProvider] || PROVIDERS.cloudflare;
   const isCF = modalProvider === 'cloudflare';
+  const isTR = modalProvider === 'tokenrouter';
   const acc = $('#field-account');
   if (acc) acc.classList.toggle('hidden', !isCF);
   const tr = $('#token-req');
-  if (tr) tr.classList.toggle('hidden', p.needsToken === false);
+  if (tr) tr.classList.toggle('hidden', p.needsToken === false || isTR);
   const box = $('#box-keys');
-  if (box) box.classList.toggle('hidden', p.needsToken === false);
+  if (box) box.classList.toggle('hidden', p.needsToken === false || isTR);
+  const ext = $('#box-ext-api');
+  if (ext) ext.classList.toggle('hidden', !isTR);
   const kt = $('#keys-title');
-  if (kt) kt.textContent = p.needsToken === false ? 'این سرویس کلید نمی‌خواهد — فقط مدل را انتخاب کن' : 'کلید و حساب سرویس';
+  if (kt) kt.textContent = (p.needsToken === false && !isTR) ? 'این سرویس کلید نمی‌خواهد — فقط مدل را انتخاب کن' : 'کلید و حساب سرویس';
 }
 function rebuildModelSelect() {
   const sel = $('#set-model');
@@ -2276,8 +2370,11 @@ function rebuildModelSelect() {
   $('#set-model-custom').value = want && sel.value === 'custom' ? (settings.modelCustom || (want !== 'custom' ? want : cur)) : (settings.modelCustom || '');
   $('#set-model-custom').classList.toggle('hidden', sel.value !== 'custom');
   $('#provider-hint').innerHTML = (p.needsToken === false
-    ? 'بدون کلید و بدون ثبت‌نام — همین حالا کار می‌کند'
+    ? (modalProvider === 'tokenrouter'
+      ? 'کلید شخصی تو از قبل تنظیم شده ✓ — اگر موجودی تمام شود خودکار با سرویس رایگان جواب می‌گیری'
+      : 'بدون کلید و بدون ثبت‌نام — همین حالا کار می‌کند')
     : 'دریافت کلید: <span class="en" dir="ltr">' + esc(p.tokenUrl) + '</span>' + (p.needsAccount ? ' + Account ID' : '')) +
+    (modalProvider === 'tokenrouter' ? ' — مدل‌های کلید تو: Claude Opus 5.5 · GPT 5.6 Luna · GPT 5.4 Nano · Gemini 3.5 Flash' : '') +
     (modalProvider === 'pollinations' ? ' — محدودیت رایگان: هر ۴۵ ثانیه یک پیام؛ برای کار سنگین کلادفلر یا Groq را انتخاب کن' : '') +
     (modalProvider === 'groq' ? ' — رایگان حدود ۳۰ درخواست در دقیقه' : '') +
     (modalProvider === 'zai' ? ' — مدل‌های جدیدتر GLM را می‌توانی دستی بنویسی (مثل glm-5.x)' : '') +
@@ -2286,9 +2383,11 @@ function rebuildModelSelect() {
 }
 
 function openSettings() {
-  modalProvider = settings.provider || 'cloudflare';
+  modalProvider = settings.provider || 'tokenrouter';
   $('#set-provider').value = modalProvider;
   switchTab('general');
+  $('#set-ext-base').value = settings.extBase || TR_DEFAULT_BASE;
+  $('#set-ext-key').value = settings.extToken || TR_DEFAULT_KEY;
   $('#set-token').value = settings.token;
   $('#set-account').value = settings.account;
   $('#set-base').value = settings.base;
@@ -2321,10 +2420,13 @@ function readSettingsFromModal() {
   const sel = $('#set-model');
   const customVal = $('#set-model-custom').value.trim();
   return {
+    extToken: ($('#set-ext-key').value || '').trim() || TR_DEFAULT_KEY,
+    extBase: ($('#set-ext-base').value || '').trim() || TR_DEFAULT_BASE,
+    extModel: TR_DEFAULT_MODEL,
     token: $('#set-token').value.trim(),
     account: $('#set-account').value.trim(),
     base: $('#set-base').value.trim(),
-    provider: $('#set-provider').value || 'cloudflare',
+    provider: $('#set-provider').value || 'tokenrouter',
     model: sel.value === 'custom' ? (customVal || sel.value) : sel.value,
     modelCustom: customVal,
     sys: $('#set-sysprompt').value.trim(),
@@ -2364,47 +2466,63 @@ function saveFromModal() {
 
 function refreshStatus() {
   const p = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
-  const needTok = p.needsToken !== false;
+  const isTR = settings.provider === 'tokenrouter';
+  const needTok = isTR ? false : (p.needsToken !== false);
   const needAcct = p.needsAccount && !(settings.base || '').trim();
-  const ok = (!needTok || settings.token.trim()) && (!needAcct || settings.account.trim());
+  const ok = (!needTok || (isTR ? !!(settings.extToken || TR_DEFAULT_KEY) : settings.token.trim())) && (!needAcct || settings.account.trim());
   const dot = $('#status-dot');
   if (dot.className.indexOf('dot-live') === -1) {
     dot.className = 'dot ' + (ok ? 'dot-on' : 'dot-off');
-    $('#status-text').textContent = ok ? (needTok ? 'متصل — ' + p.name : 'آماده — ' + p.name + ' (بدون کلید)') : 'تنظیمات لازم است';
+    $('#status-text').textContent = ok ? (needTok ? 'متصل — ' + p.name : 'آماده — ' + p.name + (isTR ? ' ✓' : ' (بدون کلید)')) : 'تنظیمات لازم است';
   }
   $('#model-badge span').textContent = prettyModel(chosenModel());
   refreshCatBadge();
 }
 
 /* — وضعیت زنده: چراغ سبز فقط وقتی که اتصالِ واقعی به مدل جواب داده باشد —
-   اگر مدل انتخابی روی حسابت فعال نبود، یک بار با مدل پایدار جایگزین تست می‌کنیم */
+   اگر مدل/موجودی/اتصال سرویس اصلی مشکل داشت، خودکار با سرویس رایگان تست و سبز می‌شود */
 function liveCheck() {
   const p = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
-  const needTok = p.needsToken !== false;
+  const isTR = settings.provider === 'tokenrouter';
+  const needTok = isTR ? false : (p.needsToken !== false);
   const needAcct = p.needsAccount && !(settings.base || '').trim();
   if ((needTok && !settings.token.trim()) || (needAcct && !settings.account.trim())) return;
-  const url = apiUrl();
-  if (!url) return;
-  let acc = '';
-  const attempt = (model, retried) => {
-    acc = '';
-    const body = { model: model, stream: true, max_tokens: 24, messages: [{ role: 'user', content: 'سلام' }] };
-    streamRequest(url, apiHeaders(), body, (t) => { acc += t; }, (err) => {
+  const chain = providerChain();
+  const attempt = (pi, model, retriedModel) => {
+    if (pi >= chain.length) {
+      $('#status-dot').className = 'dot dot-off';
+      $('#status-text').textContent = 'اتصال برقرار نشد — اینترنت را بررسی کن';
+      return;
+    }
+    const pid = chain[pi];
+    activeProvider = pid;
+    const url = apiUrl(pid);
+    if (!url) { attempt(pi + 1, null, false); return; }
+    const mdl = model || chosenModel(pid);
+    let acc = '';
+    const body = { model: mdl, stream: true, max_tokens: 24, messages: [{ role: 'user', content: 'سلام' }] };
+    streamRequest(url, apiHeaders(pid), body, (t) => { acc += t; }, (err) => {
       const dot = $('#status-dot'), txt = $('#status-text');
-      if (err && err.indexOf('[model-unavailable]') !== -1 && !retried) {
-        attempt(fallbackModel(model), true);
+      if (err && err.indexOf('[model-unavailable]') !== -1 && !retriedModel) {
+        attempt(pi, fallbackModel(mdl), true);
         return;
       }
+      if (err && pi < chain.length - 1) {
+        /* هر خطایی (موجودی/دسترسی/شبکه) → سرویس بعدی زنجیره */
+        attempt(pi + 1, null, false);
+        return;
+      }
+      activeProvider = null;
       if (!err && stripThink(acc).text.trim()) {
         dot.className = 'dot dot-on dot-live';
-        txt.textContent = (retried ? 'آنلاین ✓ — مدل انتخابی حسابت فعال نبود؛ فالبک به ' : 'آنلاین و سبز ✓ — ') + prettyModel(model);
+        txt.textContent = (pi > 0 || retriedModel ? 'آنلاین ✓ — با ' : 'آنلاین و سبز ✓ — ') + (PROVIDERS[pid] || {}).name + ' · ' + prettyModel(mdl);
       } else {
         dot.className = 'dot dot-off';
         txt.textContent = 'اتصال برقرار نشد — در تنظیمات «تست اتصال» را بزن';
       }
     });
   };
-  attempt(chosenModel(), false);
+  attempt(0, null, false);
 }
 
 /* ---------- brain modal ---------- */
@@ -2524,6 +2642,9 @@ function boot() {
       /* مدل کلادفلر روی سرویس دیگر معنا ندارد — اولین مدل پیشنهادی را بگذار */
       const first = Object.keys((PROVIDERS[modalProvider] || {}).models || {})[0];
       if (first) settings.model = first;
+    }
+    if (modalProvider === 'tokenrouter') {
+      settings.model = TR_DEFAULT_MODEL;
     }
     rebuildModelSelect();
   });
