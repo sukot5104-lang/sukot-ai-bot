@@ -35,6 +35,18 @@ http.createServer((req, res) => {
 
   /* --- fake chat completions --- */
   if (req.method === 'POST' && url.pathname.includes('/chat/completions')) {
+    /* شبیه‌سازی خطاهای واقعی برای تست «مدیریت API» v1.6.0 */
+    const auth = req.headers['authorization'] || '';
+    if (auth === 'Bearer bad' || auth === 'Bearer badtoken') {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ errors: [{ code: 10000, message: 'Authentication error: invalid API token.' }] }));
+      return;
+    }
+    if (auth === 'Bearer ratelimit') {
+      res.writeHead(429, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ errors: [{ code: 429, message: 'Rate limit exceeded: too many requests. Try again later.' }] }));
+      return;
+    }
     let body = '';
     req.on('data', (d) => { body += d; });
     req.on('end', () => {

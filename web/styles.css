@@ -575,3 +575,139 @@ body{
   .cat-badge{padding:6px 10px;font-size:11px}
   #model-badge{display:none}
 }
+
+/* ===== v1.6.0: ۸ تب تنظیمات (واکنش‌گرا) ===== */
+.tab-bar{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;border-bottom:1px solid var(--border-soft);margin:4px 0 14px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab-btn{flex:1;min-width:78px;max-width:110px;padding:9px 6px;border-radius:11px;background:rgba(13,7,25,.6);border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:11.5px;cursor:pointer;transition:all .16s ease;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+.tab-btn .ic{width:13px;height:13px}
+.tab-btn:hover{color:var(--text);border-color:rgba(168,85,247,.5)}
+.tab-btn.active{background:var(--grad);color:#fff;border:none;font-weight:700;box-shadow:var(--glow)}
+
+/* ===== v1.6.0: استودیوی ساخت عکس ===== */
+.style-chips{display:flex;flex-wrap:wrap;gap:7px}
+.style-chip{
+  padding:7px 13px;border-radius:99px;font-family:inherit;font-size:12px;cursor:pointer;
+  background:rgba(13,7,25,.65);border:1px solid var(--border);color:var(--muted);transition:all .15s ease;
+}
+.style-chip:hover{color:var(--text);border-color:rgba(168,85,247,.55)}
+.style-chip.active{background:var(--grad);color:#fff;border:none;font-weight:700;box-shadow:var(--glow)}
+.studio-result{margin-top:14px;border:1px solid var(--border-soft);border-radius:16px;padding:12px;background:rgba(13,7,25,.4)}
+.studio-recent-wrap{margin-top:16px}
+.studio-recent{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.recent-thumb{border:1px solid var(--border-soft);border-radius:11px;overflow:hidden;padding:0;cursor:pointer;background:#0d0722;aspect-ratio:1;transition:all .15s ease}
+.recent-thumb:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--glow)}
+.recent-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+#btn-studio-go.busy{opacity:.75;pointer-events:none}
+#btn-studio-go .brush{animation:spinGlobe 2.4s linear infinite}
+
+/* ===== v1.6.0: خطای اجرای بازی + ویرایشگر کد ===== */
+.run-errors{
+  background:rgba(255,93,115,.12);border:1px solid rgba(255,93,115,.5);border-radius:13px;
+  padding:10px 13px;margin-bottom:8px;max-height:26vh;overflow-y:auto;
+}
+.run-err-head{display:flex;align-items:center;gap:8px;color:#ffb3be;font-size:13px;margin-bottom:6px}
+.run-err-head .ic{color:var(--err)}
+.fix-btn{
+  display:inline-flex;align-items:center;gap:6px;margin-inline-start:auto;
+  background:rgba(255,93,115,.2);border:1px solid rgba(255,93,115,.5);color:#ffd9df;
+  font-family:inherit;font-size:11.5px;padding:5px 12px;border-radius:9px;cursor:pointer;transition:all .15s;
+}
+.fix-btn:hover{background:rgba(255,93,115,.34)}
+#run-err-list{font-family:Consolas,monospace;font-size:11.5px;color:#ffcdd4;white-space:pre-wrap;direction:ltr;text-align:left;margin:0;max-height:14vh;overflow-y:auto}
+.run-body{flex:1;display:flex;gap:8px;min-height:0}
+.run-body iframe{flex:1}
+.run-editor{
+  width:44%;min-width:280px;display:flex;flex-direction:column;gap:8px;
+  background:rgba(13,7,25,.85);border:1px solid var(--border-soft);border-radius:14px;padding:10px;
+}
+.run-editor.hidden{display:none}
+.run-ed-head{display:flex;align-items:baseline;gap:10px;font-size:13px}
+.run-editor textarea{
+  flex:1;width:100%;background:#0d0722;border:1px solid var(--border);border-radius:11px;color:#dcc9ff;
+  font-family:Consolas,monospace;font-size:12px;line-height:1.7;direction:ltr;text-align:left;
+  resize:none;outline:none;padding:10px;
+}
+.run-editor textarea:focus{border-color:var(--accent)}
+.run-editor .modal-actions{margin:0}
+
+/* ===== v1.6.0: بنر بزرگ اجرای بازی ===== */
+.run-banner{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  margin:10px 0 2px;padding:11px;border-radius:13px;cursor:pointer;
+  background:var(--grad);color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;
+  border:none;box-shadow:var(--glow);transition:all .16s ease;animation:fadein .3s ease;
+}
+.run-banner:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.run-banner .ic{color:#fff}
+
+/* ===== v1.6.0: تم‌های واقعی ===== */
+/* — اقیانوس آبی — */
+body[data-theme="ocean"]{
+  --accent:#38bdf8;--accent2:#0369a1;--pink:#22d3ee;--err:#ff5d73;--ok:#34d399;
+  --grad:linear-gradient(135deg,#38bdf8,#0369a1 55%,#22d3ee);
+  --glow:0 6px 26px rgba(56,189,248,.35);
+  --border-soft:rgba(56,189,248,.24);
+  --panel:#0b1a2e;--panel2:#122744;--border:#1d3a5f;
+  background:
+    radial-gradient(1100px 560px at 85% -12%, rgba(3,105,161,.28), transparent 60%),
+    radial-gradient(820px 460px at -12% 112%, rgba(34,211,238,.12), transparent 60%),
+    #060d1a;
+}
+body[data-theme="ocean"] #sidebar{background:linear-gradient(180deg,rgba(11,26,46,.96),rgba(6,13,26,.98))}
+body[data-theme="ocean"] .msg.bot .bubble{background:rgba(11,26,46,.88)}
+body[data-theme="ocean"] .msg.user .bubble{background:linear-gradient(135deg,#0369a1,#38bdf8);box-shadow:0 4px 18px rgba(3,105,161,.4)}
+body[data-theme="ocean"] .cat-card.active{background:linear-gradient(135deg,rgba(56,189,248,.2),rgba(34,211,238,.12))}
+body[data-theme="ocean"] .codeblock .code-bar{background:linear-gradient(135deg,rgba(56,189,248,.18),rgba(3,105,161,.10))}
+body[data-theme="ocean"] .brand-logo{border-color:rgba(56,189,248,.5);box-shadow:0 4px 18px rgba(56,189,248,.45)}
+body[data-theme="ocean"] .msg.bot .avatar{border-color:rgba(56,189,248,.5)}
+body[data-theme="ocean"] #topbar,body[data-theme="ocean"] #composer-wrap{background:rgba(9,20,36,.78)}
+body[data-theme="ocean"] .modal{background:linear-gradient(180deg,#0e2036,#0a1526)}
+body[data-theme="ocean"] .attach-file,body[data-theme="ocean"] .att-file{background:rgba(56,189,248,.14);border-color:rgba(56,189,248,.35)}
+body[data-theme="ocean"] .petals i{background:linear-gradient(135deg,#a5f3fc,#38bdf8)}
+
+/* — روشن — */
+body[data-theme="light"]{
+  --bg:#f1ecfb;--bg2:#ffffff;--panel:#ffffff;--panel2:#ece4fb;
+  --border:#d9cdf0;--border-soft:rgba(124,58,237,.28);
+  --text:#241a3d;--muted:#5d5478;--muted2:#8d84a8;
+  --accent:#7c3aed;--accent2:#6d28d9;--pink:#db2777;
+  --grad:linear-gradient(135deg,#8b5cf6,#7c3aed 55%,#ec4899);
+  --glow:0 6px 22px rgba(124,58,237,.25);
+  background:
+    radial-gradient(1100px 560px at 85% -12%, rgba(139,92,246,.14), transparent 60%),
+    radial-gradient(820px 460px at -12% 112%, rgba(236,72,153,.10), transparent 60%),
+    #f1ecfb;
+}
+body[data-theme="light"] #sidebar{background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(243,239,252,.98))}
+body[data-theme="light"] .msg.bot .bubble{background:#ffffff;border-color:var(--border-soft)}
+body[data-theme="light"] .msg.user .bubble{background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff}
+body[data-theme="light"] #topbar,body[data-theme="light"] #composer-wrap{background:rgba(250,248,255,.85)}
+body[data-theme="light"] .modal{background:linear-gradient(180deg,#ffffff,#f6f2fd)}
+body[data-theme="light"] .field input,body[data-theme="light"] .field select,body[data-theme="light"] .field textarea,
+body[data-theme="light"] .mem-add input{background:#f4f0fc;color:var(--text)}
+body[data-theme="light"] .field select option{background:#fff}
+body[data-theme="light"] #composer{background:#ffffff}
+body[data-theme="light"] .codeblock,body[data-theme="light"] .msg .bubble pre{background:#221539}
+body[data-theme="light"] .cat-card,body[data-theme="light"] .suggestion,body[data-theme="light"] .side-tool{background:#ffffff}
+body[data-theme="light"] .chat-item:hover{background:#f1eafb}
+body[data-theme="light"] .tab-btn{background:#f1eafb}
+body[data-theme="light"] .studio-result,body[data-theme="light"] .sub-box{background:#f6f2fd}
+body[data-theme="light"] .brand-logo{border-color:rgba(124,58,237,.5)}
+body[data-theme="light"] .petals i{background:linear-gradient(135deg,#c4b5fd,#f9a8d4)}
+body[data-theme="light"] .recent-thumb,body[data-theme="light"] .run-editor textarea{background:#221539}
+body[data-theme="light"] .icon-btn{background:#ffffff}
+body[data-theme="light"] .toast{background:#ffffff;color:var(--text)}
+
+/* ===== v1.6.0: اندازهٔ متن پیام + حالت کم‌انیمیشن ===== */
+.msg .bubble{font-size:var(--msgfs,14.5px)}
+body.no-anim *{animation-duration:.001s!important;transition-duration:.001s!important}
+body.no-anim .petals{display:none}
+
+/* ===== v1.6.0: موبایل ===== */
+@media (max-width:760px){
+  .tab-btn{min-width:64px;font-size:10.5px;padding:8px 4px}
+  .run-body{flex-direction:column}
+  .run-editor{width:100%;min-width:0;max-height:38vh}
+  .studio-recent{grid-template-columns:repeat(3,1fr)}
+}
