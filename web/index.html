@@ -52,6 +52,9 @@
   <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></symbol>
+  <symbol id="i-zap-off" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/><line x1="2" y1="2" x2="22" y2="22"/></symbol>
 </svg>
 
 <div id="app">
@@ -98,7 +101,10 @@
         <button class="model-badge cat-badge" id="cat-badge" title="تغییر دستیار تخصصی">
           <svg class="ic ic-sm"><use href="#i-globe"/></svg><span class="cat-name">اطلاعات عمومی</span>
         </button>
-        <div class="model-badge" id="model-badge"><svg class="ic ic-sm"><use href="#i-spark"/></svg><span>—</span></div>
+        <button class="model-badge model-badge-btn" id="model-badge" title="تغییر مدل هوش — لیست زیبای مدل‌ها">
+          <svg class="ic ic-sm"><use href="#i-spark"/></svg><span>—</span>
+          <svg class="ic ic-sm chev"><use href="#i-chev"/></svg>
+        </button>
       </div>
       <div class="topbar-actions">
         <button id="btn-clear-chat" class="icon-btn" title="پاک‌کردن گفتگوی فعلی"><svg class="ic"><use href="#i-trash"/></svg></button>
@@ -112,35 +118,63 @@
       <div class="petals" aria-hidden="true">
         <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
       </div>
-      <div class="hero-ring">
-        <img class="hero" src="img/hero.jpg" alt="سوکوت">
-      </div>
-      <h1>سلام! من سوکوت هستم</h1>
-      <p class="sub">دستیار هوشمند فارسی با ساخت عکس، اجرای زندهٔ بازی، جستجوی وب و حافظهٔ بلندمدت — ساختهٔ <b>Sukot</b></p>
-      <p class="sub2">قدرت‌گرفته از TokenRouter · Cloudflare · رایگان تضمینی · Pollinations · Groq · Gemini</p>
-      <a class="welcome-tg" href="https://t.me/SUKOT1344" target="_blank" rel="noopener">
-        <svg class="ic ic-sm"><use href="#i-telegram"/></svg><span>عضویت در کانال تلگرام سوکوت</span>
-      </a>
-      <div class="cat-grid">
-        <button class="cat-card" data-cat="general">
-          <svg class="ic"><use href="#i-globe"/></svg><b>اطلاعات عمومی</b><span>پاسخ به‌روز با جستجوی زندهٔ وب</span>
-        </button>
-        <button class="cat-card" data-cat="code">
-          <svg class="ic"><use href="#i-code"/></svg><b>برنامه‌نویسی</b><span>کد کامل و قابل اجرا + دکمهٔ کپی</span>
-        </button>
-        <button class="cat-card" data-cat="study">
-          <svg class="ic"><use href="#i-cap"/></svg><b>درسی و آموزشی</b><span>معلم خصوصی قدم‌به‌قدم و صبور</span>
-        </button>
-        <button class="cat-card" data-cat="games">
-          <svg class="ic"><use href="#i-gamepad"/></svg><b>بازی‌سازی</b><span>بازی کامل بساز و همین‌جا اجرا کن</span>
-        </button>
-        <button class="cat-card" data-cat="voice">
-          <svg class="ic"><use href="#i-mic"/></svg><b>گفتگوی صوتی</b><span>جواب کوتاه؛ با صدا خوانده می‌شود</span>
-        </button>
-      </div>
-      <div class="suggestions">
-        <button class="suggestion"><svg class="ic ic-sm"><use href="#i-gamepad"/></svg><span>یه بازی مار کامل و رنگی بساز که همین‌جا اجراش کنم</span></button>
-        <button class="suggestion"><svg class="ic ic-sm"><use href="#i-spark"/></svg><span>اسم من علی است؛ یادت باشد. حالا بگو اسمم را یادت ماند یا نه!</span></button>
+      <div class="welcome-inner">
+        <div class="hero-ring">
+          <img class="hero" src="img/hero.jpg" alt="سوکوت">
+        </div>
+        <div class="welcome-chips">
+          <span class="w-chip w-ver"><svg class="ic ic-sm"><use href="#i-spark"/></svg><span>نسخهٔ ۱٫۹٫۰</span></span>
+          <span class="w-chip" id="w-status"><i class="dot dot-off"></i><span>در حال اتصال…</span></span>
+        </div>
+        <h1>سلام! من سوکوت هستم</h1>
+        <p class="sub">دستیار هوشمند فارسی با ساخت عکس، اجرای زندهٔ بازی، جستجوی وب و حافظهٔ بلندمدت — ساختهٔ <b>Sukot</b></p>
+        <p class="sub2">مغز اصلی: GLM 5.3 Flash (سرویس دال) · رایگانِ تضمینی: Pollinations · Groq · Gemini</p>
+        <a class="welcome-tg" href="https://t.me/SUKOT1344" target="_blank" rel="noopener">
+          <svg class="ic ic-sm"><use href="#i-telegram"/></svg><span>عضویت در کانال تلگرام سوکوت</span>
+        </a>
+        <div class="w-stats">
+          <div class="w-stat"><b>۳</b><span>مغز استدلالی قوی</span></div>
+          <div class="w-stat"><b>۵</b><span>دستیار تخصصی</span></div>
+          <div class="w-stat"><b>∞</b><span>حافظهٔ بلندمدت</span></div>
+          <div class="w-stat"><b>۱۰۲۴</b><span>ساخت عکس رایگان</span></div>
+        </div>
+        <div class="cat-grid">
+          <button class="cat-card" data-cat="general">
+            <svg class="ic"><use href="#i-globe"/></svg><b>اطلاعات عمومی</b><span>پاسخ به‌روز با جستجوی زندهٔ وب و قیمت لحظه‌ای ارز</span>
+          </button>
+          <button class="cat-card" data-cat="code">
+            <svg class="ic"><use href="#i-code"/></svg><b>برنامه‌نویسی</b><span>کد کامل و قابل اجرا + دکمهٔ کپی و رفع خطا</span>
+          </button>
+          <button class="cat-card" data-cat="study">
+            <svg class="ic"><use href="#i-cap"/></svg><b>درسی و آموزشی</b><span>معلم خصوصی قدم‌به‌قدم، صبور و خلاصه‌نویس</span>
+          </button>
+          <button class="cat-card" data-cat="games">
+            <svg class="ic"><use href="#i-gamepad"/></svg><b>بازی‌سازی</b><span>بازی کامل بساز و همین‌جا اجرایش کن</span>
+          </button>
+          <button class="cat-card" data-cat="voice">
+            <svg class="ic"><use href="#i-mic"/></svg><b>گفتگوی صوتی</b><span>جواب کوتاه؛ با صدای فارسی خوانده می‌شود</span>
+          </button>
+          <button class="cat-card" data-cat="image">
+            <svg class="ic"><use href="#i-image"/></svg><b>ساخت عکس</b><span>با یک جمله عکس بساز — رایگان، بدون کلید</span>
+          </button>
+        </div>
+        <div class="w-how">
+          <div class="w-how-title"><svg class="ic ic-sm"><use href="#i-bolt"/></svg><span>چطور شروع کنم؟</span></div>
+          <div class="w-steps">
+            <span><i>۱</i> یکی از دستیارها را انتخاب کن</span>
+            <span><i>۲</i> سؤالت را بنویس یا نمونه‌های زیر را بزن</span>
+            <span><i>۳</i> اگر عکس یا فایل داری، با گیرهٔ کاغذ بفرست</span>
+          </div>
+        </div>
+        <div class="suggestions">
+          <button class="suggestion"><svg class="ic ic-sm"><use href="#i-gamepad"/></svg><span>یه بازی مار کامل و رنگی بساز که همین‌جا اجراش کنم</span></button>
+          <button class="suggestion"><svg class="ic ic-sm"><use href="#i-spark"/></svg><span>اسم من علی است؛ یادت باشد. حالا بگو اسمم را یادت ماند یا نه!</span></button>
+          <button class="suggestion"><svg class="ic ic-sm"><use href="#i-image"/></svg><span>یه عکس از یک گربهٔ فضانورد روی ماه با غروب خورشید بساز</span></button>
+          <button class="suggestion"><svg class="ic ic-sm"><use href="#i-globe"/></svg><span>قیمت دلار امروز چند است؟ خلاصه و دقیق بگو</span></button>
+          <button class="suggestion"><svg class="ic ic-sm"><use href="#i-code"/></svg><span>یه صفحهٔ شخصی HTML مدرن با تم تیره برایم بساز</span></button>
+          <button class="suggestion"><svg class="ic ic-sm"><use href="#i-cap"/></svg><span>فیزیک دهم — قانون اون را با مثال ساده توضیح بده</span></button>
+        </div>
+        <p class="w-foot">ساخته‌شده با <svg class="ic ic-sm w-heart"><use href="#i-heart"/></svg> توسط <b>Sukot</b> · <span class="en" dir="ltr">v1.9.0</span></p>
       </div>
     </div>
 
@@ -168,7 +202,7 @@
   </main>
 </div>
 
-<!-- ===== Settings Modal (8 sections, v1.8.0) ===== -->
+<!-- ===== Settings Modal (8 sections, v1.9.0) ===== -->
 <div id="settings-backdrop" class="backdrop hidden">
   <div class="modal" id="settings-modal">
     <div class="modal-header">
@@ -233,15 +267,19 @@
 
     <!-- ——— ۲) ظاهر و تم ——— -->
     <div class="tab-page hidden" data-page="look">
-      <label class="field">
-        <span>تم رنگی</span>
-        <select id="set-theme">
+      <div class="field">
+        <span>تم رنگی — با یک لمس فوراً عوض می‌شود (نیازی به ذخیره نیست)</span>
+        <div class="theme-grid" id="theme-grid"></div>
+        <select id="set-theme" class="hidden">
           <option value="night">شبِ بنفش (پیش‌فرض)</option>
           <option value="ocean">اقیانوس آبی</option>
-          <option value="light">روشن</option>
+          <option value="emerald">جنگل زمردی</option>
+          <option value="sunset">غروب نارنجی</option>
+          <option value="light">روشن (مینیمال)</option>
+          <option value="midnight">نیمه‌شبِ مشکی</option>
         </select>
-        <span class="hint">تم فوراً روی کل برنامه اعمال می‌شود.</span>
-      </label>
+        <span class="hint">۶ تم آماده — همان لحظه که لمس کنی، کل برنامه عوض می‌شود.</span>
+      </div>
       <label class="field">
         <span>اندازهٔ متن پیام‌ها: <b id="font-val">۱۰۰٪</b></span>
         <input type="range" id="set-font" min="0.9" max="1.25" step="0.05" value="1">
@@ -254,12 +292,17 @@
 
     <!-- ——— ۳) مدل هوش مصنوعی ——— -->
     <div class="tab-page hidden" data-page="model">
-      <label class="field">
-        <span>مدل هوش مصنوعی</span>
-        <select id="set-model"></select>
+      <div class="field">
+        <span>مدل هوش مصنوعی — از لیست زیبا انتخاب کن</span>
+        <button type="button" class="pick-trigger" id="set-model-trigger">
+          <svg class="ic"><use href="#i-chip"/></svg>
+          <span class="pt-body"><b id="set-model-label">—</b><i>برای تغییر لمس کن</i></span>
+          <svg class="ic chev"><use href="#i-chev"/></svg>
+        </button>
+        <select id="set-model" class="hidden"></select>
         <input type="text" id="set-model-custom" placeholder="آیدی دقیق مدل" dir="ltr" class="hidden">
-        <span class="hint">مدل‌های بزرگ‌تر باهوش‌ترند. GLM 5.3، Kimi K2.6 و DeepSeek V4 Pro غول‌های بالای ۳۰۰B هستند و روی پلن پولی فعال می‌شوند؛ روی پلن رایگان سوکوت خودکار با مدل پایدار جواب می‌دهد.</span>
-      </label>
+        <span class="hint">مدل‌های بزرگ‌تر باهوش‌ترند. مغزهای دال (GLM 5.3 Flash، MiniMax M2.7، DeepSeek V4 Flash) آماده و تست‌شده هستند؛ در لیست بالا با یک لمس عوضشان کن.</span>
+      </div>
       <label class="field">
         <span>سبک پاسخ</span>
         <select id="set-style">
@@ -412,7 +455,7 @@
     <div class="tab-page hidden" data-page="about">
       <div class="sub-box" style="text-align:center">
         <p style="font-size:17px;font-weight:bold;margin:8px 0 2px">سوکوت AI</p>
-        <p class="en" dir="ltr" style="font-size:11px;color:var(--muted2)">v1.8.0 · Sukot AI Bot</p>
+        <p class="en" dir="ltr" style="font-size:11px;color:var(--muted2)">v1.9.0 · Sukot AI Bot</p>
         <p class="hint" style="line-height:2;margin-top:8px">ساخت عکس با هوش مصنوعی، استودیوی بازی‌سازی با اجرای زنده، ۵ دستیار تخصصی، آپلود فایل و عکس، جستجوی زندهٔ وب، قیمت لحظه‌ای ارز، صدای فارسی، حافظهٔ بلندمدت و سرویس‌های رایگان بدون کارت — روی اندروید، ویندوز و وب.</p>
       </div>
       <div class="modal-actions" style="flex-direction:column;gap:10px">
@@ -454,6 +497,28 @@
       <button class="cat-card" data-cat="voice">
         <svg class="ic"><use href="#i-mic"/></svg><b>گفتگوی صوتی</b><span>جواب کوتاه؛ با صدا خوانده می‌شود</span>
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Model Picker (v1.9.0) — لیست زیبای مدل‌ها ===== -->
+<div id="model-backdrop" class="backdrop backdrop-top hidden">
+  <div class="modal model-sheet" id="model-modal">
+    <div class="modal-header">
+      <h2><svg class="ic"><use href="#i-chip"/></svg><span>انتخاب مدل هوش</span></h2>
+      <button id="btn-close-model" class="icon-btn"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <p class="modal-desc" id="model-sheet-desc">مدل‌های سرویس فعلی — با یک لمس عوض کن؛ فوراً اعمال می‌شود.</p>
+    <div class="model-list" id="model-list"></div>
+    <div class="sub-box hidden" id="box-model-custom">
+      <div class="sub-title">مدل دلخواه</div>
+      <label class="field">
+        <span>آیدی دقیق مدل (طبق سند سرویس)</span>
+        <input type="text" id="pick-custom-id" placeholder="مثلاً @cf/meta/llama-3.3-70b-instruct-fp8-fast" dir="ltr" autocomplete="off">
+      </label>
+      <div class="modal-actions" style="margin-top:0">
+        <button id="btn-pick-custom" class="btn btn-primary btn-sm"><svg class="ic"><use href="#i-check"/></svg><span>استفاده از این مدل</span></button>
+      </div>
     </div>
   </div>
 </div>
@@ -523,7 +588,7 @@
       <img class="about-hero" src="img/hero.jpg" alt="سوکوت AI">
     </div>
     <h2 class="about-name">سوکوت AI</h2>
-    <div class="about-ver" dir="ltr">v1.8.0</div>
+    <div class="about-ver" dir="ltr">v1.9.0</div>
     <p class="about-desc">ساخت عکس مثل ChatGPT (رایگان، بدون کلید)، استودیوی بازی‌سازی با اجرای زندهٔ بازی داخل خود اپ، سرویس‌های رایگان بدون کارت (پولینیشن، Groq، Gemini)، آپلود فایل و عکس، غول‌های بالای ۳۰۰B، ابزارهای عامل، جستجوی زندهٔ وب، قیمت لحظه‌ای ارز، ۵ دستیار تخصصی، صدای فارسی و حافظهٔ بلندمدت — روی اندروید، ویندوز و وب.</p>
     <a class="about-tg" href="https://t.me/SUKOT1344" target="_blank" rel="noopener">
       <svg class="ic ic-sm"><use href="#i-telegram"/></svg><span>کانال تلگرام: <b dir="ltr">@SUKOT1344</b></span>

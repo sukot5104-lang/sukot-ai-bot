@@ -1990,12 +1990,130 @@ const IMG_STYLES = {
   render3d: { label: 'سه‌بعدی', suffix: ', 3D render, octane render, volumetric lighting, high quality CGI' },
   gameart: { label: 'آرت بازی', suffix: ', stylized game art, colorful game asset, concept art for video game' }
 };
+/* v1.9.0: متادیتای تم‌ها — برای رنگ نوار وضعیت اندروید */
+const THEME_META = {
+  night:    { name: 'شبِ بنفش',       note: 'پیش‌فرض',   bar: '#12091f' },
+  ocean:    { name: 'اقیانوس آبی',    note: 'آرام',      bar: '#060d1a' },
+  emerald:  { name: 'جنگل زمردی',     note: 'سبزِ تازه', bar: '#04120c' },
+  sunset:   { name: 'غروب نارنجی',    note: 'گرم',       bar: '#150a04' },
+  light:    { name: 'روشن (مینیمال)', note: 'روز',       bar: '#f1ecfb' },
+  midnight: { name: 'نیمه‌شبِ مشکی',  note: 'AMOLED',    bar: '#05060c' }
+};
 function applyLook() {
   try {
-    document.body.dataset.theme = settings.theme || 'night';
+    const t = THEME_META[settings.theme] ? settings.theme : 'night';
+    document.body.dataset.theme = t;
     document.body.style.setProperty('--msgfs', (14.5 * (Number(settings.fontScale) || 1)).toFixed(1) + 'px');
     document.body.classList.toggle('no-anim', settings.anim === false);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', THEME_META[t].bar);
   } catch (e) {}
+}
+/* v1.9.0: شبکهٔ کارت‌های تم — با یک لمس فوراً اعمال و ذخیره می‌شود */
+function renderThemeGrid() {
+  const grid = $('#theme-grid');
+  if (!grid) return;
+  const cur = THEME_META[settings.theme] ? settings.theme : 'night';
+  grid.innerHTML = Object.keys(THEME_META).map((id) =>
+    '<button type="button" class="theme-card' + (id === cur ? ' active' : '') + '" data-theme="' + id + '">' +
+      '<span class="swatch sw-' + id + '"></span><b>' + THEME_META[id].name + '</b><i>' + THEME_META[id].note + '</i>' +
+    '</button>'
+  ).join('');
+  grid.querySelectorAll('.theme-card').forEach((b) => {
+    b.addEventListener('click', () => {
+      settings.theme = b.dataset.theme;
+      saveSettings(settings);
+      $('#set-theme').value = settings.theme;
+      applyLook();
+      renderThemeGrid();
+      toast('تم «' + THEME_META[settings.theme].name + '» فعال شد — فوراً ذخیره شد');
+    });
+  });
+}
+
+/* ============================================================
+   v1.9.0: انتخاب‌گر زیبای مدل — شیت لمسی با کارت‌های مدل
+   (جایگزین منوی زشت و بومی select در اندروید)
+   ============================================================ */
+const MODEL_INFO = {
+  'zai-org/GLM-5.3-Flash': { desc: 'مغز اصلی سوکوت — استدلال قوی، پاسخ سریع و فارسی روان؛ بهترین انتخاب برای بیشتر کارها.', tags: ['استدلال', 'سریع', 'بینایی'] },
+  'MiniMaxAI/MiniMax-M2.7': { desc: 'مغز قدرتمند برای کارهای سنگین و استدلال طولانی؛ وقتی جواب کاملی می‌خواهی امتحانش کن.', tags: ['استدلال', 'قوی'] },
+  'deepseek-ai/DeepSeek-V4-Flash-0731': { desc: 'استدلال عمیق و دقیق — عالی برای ریاضی، کدنویسی و مسئله‌های پیچیده.', tags: ['استدلال', 'دقیق'] },
+  'anthropic/claude-opus-5-5-advance-ai': { desc: 'قوی‌ترین مغز TokenRouter — متن‌نویسی، تحلیل و ترجمهٔ حرفه‌ای.', tags: ['قوی'] },
+  'openai/gpt-5.6-luna': { desc: 'نسل جدید OpenAI روی TokenRouter.', tags: [] },
+  'openai/gpt-5.4-nano': { desc: 'سبک و کم‌مصرف روی TokenRouter.', tags: ['سریع'] },
+  'google/gemini-3.5-flash-lite': { desc: 'سرعت گوگل روی TokenRouter.', tags: ['سریع'] },
+  'openai-fast': { desc: 'مغز رایگان همیشگی — بدون کلید و بدون ثبت‌نام.', tags: ['رایگان', 'سریع'] }
+};
+const PICK_CUSTOM_OK = ['cloudflare', 'groq', 'gemini', 'zai', 'openrouter', 'custom', 'tokenrouter'];
+
+function openModelPicker(fromSettings) {
+  renderModelCards();
+  $('#model-backdrop').classList.remove('hidden');
+}
+function closeModelPicker() { $('#model-backdrop').classList.add('hidden'); }
+
+function renderModelCards() {
+  const p = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
+  const models = p.models || {};
+  const curModel = chosenModel();
+  const list = $('#model-list');
+  const desc = $('#model-sheet-desc');
+  if (desc) desc.textContent = 'مدل‌های سرویس «' + p.name + '» — با یک لمس عوض کن؛ فوراً اعمال و ذخیره می‌شود.';
+  list.innerHTML = Object.keys(models).map((id) => {
+    const info = MODEL_INFO[id] || {};
+    const nm = String(models[id]).split('—')[0].trim();
+    const tags = (info.tags || []).map((t) => '<i>' + esc(t) + '</i>').join('');
+    const rec = id === 'zai-org/GLM-5.3-Flash' ? '<i class="mc-tag">پیشنهادی</i>' : '';
+    return '<button type="button" class="model-card' + (id === curModel ? ' active' : '') + '" data-model="' + esc(id) + '">' +
+      '<span class="mc-radio"></span>' +
+      '<span class="mc-body"><b>' + esc(nm) + rec + '</b>' +
+      '<span class="mc-desc">' + esc(info.desc || models[id]) + '</span>' +
+      (tags ? '<span class="mc-tags">' + tags + '</span>' : '') +
+      '</span></button>';
+  }).join('');
+  list.querySelectorAll('.model-card').forEach((b) => {
+    b.addEventListener('click', () => applyPickedModel(b.dataset.model, false));
+  });
+  const box = $('#box-model-custom');
+  if (box) box.classList.toggle('hidden', PICK_CUSTOM_OK.indexOf(settings.provider) === -1);
+}
+
+function applyPickedModel(id, isCustom) {
+  settings.model = id;
+  if (isCustom) settings.modelCustom = id;
+  saveSettings(settings);
+  /* همگام‌سازی با select مخفی تنظیمات تا ذخیرهٔ بعدی هم درست بماند */
+  const sel = $('#set-model');
+  if (sel) {
+    const ids = Array.from(sel.options).map((o) => o.value);
+    if (!isCustom && ids.indexOf(id) === -1 && sel.querySelector('option[value="custom"]')) {
+      const opt = document.createElement('option');
+      opt.value = id; opt.textContent = prettyModel(id);
+      sel.insertBefore(opt, sel.querySelector('option[value="custom"]'));
+    }
+    if (isCustom && sel.querySelector('option[value="custom"]')) sel.value = 'custom';
+    else if (ids.indexOf(id) !== -1 || sel.querySelector('option[value="' + id + '"]')) sel.value = id;
+    const ci = $('#set-model-custom');
+    if (ci) {
+      ci.value = isCustom ? id : (settings.modelCustom || '');
+      ci.classList.toggle('hidden', sel.value !== 'custom');
+    }
+  }
+  updateModelTrigger();
+  refreshStatus();
+  closeModelPicker();
+  toast('مدل «' + prettyModel(settings.model) + '» فعال شد ✓');
+}
+
+function updateModelTrigger() {
+  const lbl = $('#set-model-label');
+  if (!lbl) return;
+  const sel = $('#set-model');
+  const ci = $('#set-model-custom');
+  let v = (sel && sel.value) ? sel.value : (settings.model || '');
+  if (v === 'custom') v = (ci && ci.value.trim()) || settings.modelCustom || 'custom';
+  lbl.textContent = prettyModel(v);
 }
 
 /* ============================================================
@@ -2454,6 +2572,7 @@ function rebuildModelSelect() {
     (modalProvider === 'zai' ? ' — مدل‌های جدیدتر GLM را می‌توانی دستی بنویسی (مثل glm-5.x)' : '') +
     (modalProvider === 'openrouter' ? ' — هر مدل دیگر را می‌توانی از openrouter.ai/models دستی بنویسی' : '');
   applyProviderUI();
+  updateModelTrigger();
 }
 
 function openSettings() {
@@ -2480,7 +2599,8 @@ function openSettings() {
   $('#set-ttsfallback').checked = settings.ttsFallback !== false;
   $('#set-imgengine').value = settings.imageEngine || 'auto';
   $('#set-imgstyle').value = settings.imgStyle || 'none';
-  $('#set-theme').value = settings.theme || 'night';
+  $('#set-theme').value = THEME_META[settings.theme] ? settings.theme : 'night';
+  renderThemeGrid();
   $('#set-font').value = settings.fontScale || 1;
   $('#font-val').textContent = Math.round((settings.fontScale || 1) * 100) + '٪';
   $('#set-anim').checked = settings.anim !== false;
@@ -2555,6 +2675,14 @@ function refreshStatus() {
     $('#status-text').textContent = ok ? (needTok ? 'متصل — ' + p.name : (isTR || isDahl) ? 'آماده — ' + p.name : 'آماده — ' + p.name + ' (بدون کلید)') : 'تنظیمات لازم است';
   }
   $('#model-badge span').textContent = prettyModel(chosenModel());
+  /* v1.9.0: چیپ وضعیت روی صفحهٔ خوش‌آمد هم به‌روز شود */
+  const wst = $('#w-status');
+  if (wst) {
+    const wd = wst.querySelector('.dot');
+    const wt = wst.querySelector('span');
+    if (wd) wd.className = 'dot ' + (ok ? 'dot-on' : 'dot-off');
+    if (wt) wt.textContent = ok ? 'متصل — مغز ' + prettyModel(chosenModel()) : 'آماده — فقط تنظیمات لازم است';
+  }
   refreshCatBadge();
 }
 
@@ -2761,9 +2889,31 @@ function boot() {
     });
   });
 
-  /* ظاهر و تم */
+  /* ظاهر و تم — v1.9.0: همه‌چیز زنده و فوری اعمال می‌شود */
+  renderThemeGrid();
   $('#set-font').addEventListener('input', () => {
     $('#font-val').textContent = Math.round($('#set-font').value * 100) + '٪';
+    settings.fontScale = Number($('#set-font').value) || 1;
+    applyLook();
+  });
+  $('#set-font').addEventListener('change', () => { saveSettings(settings); toast('اندازهٔ متن ذخیره شد'); });
+  $('#set-anim').addEventListener('change', () => {
+    settings.anim = $('#set-anim').checked;
+    saveSettings(settings);
+    applyLook();
+    toast(settings.anim === false ? 'انیمیشن‌ها خاموش شد' : 'انیمیشن‌ها روشن شد');
+  });
+
+  /* v1.9.0: انتخاب‌گر مدل — از نشان بالا و از تنظیمات */
+  $('#model-badge').addEventListener('click', () => openModelPicker(false));
+  const trig = $('#set-model-trigger');
+  if (trig) trig.addEventListener('click', () => openModelPicker(true));
+  $('#btn-close-model').addEventListener('click', closeModelPicker);
+  $('#model-backdrop').addEventListener('click', (e) => { if (e.target.id === 'model-backdrop') closeModelPicker(); });
+  $('#btn-pick-custom').addEventListener('click', () => {
+    const v = ($('#pick-custom-id').value || '').trim();
+    if (!v) { toast('آیدی دقیق مدل را وارد کن', true); return; }
+    applyPickedModel(v, true);
   });
 
   /* مدیریت API: حذف API ذخیره‌شده (تأیید دومرحله‌ای) */
@@ -2827,9 +2977,14 @@ function boot() {
     } catch (e) { toast('تمام‌صفحه در این دستگاه پشتیبانی نمی‌شود', true); }
   });
 
-  /* categories: welcome cards + header badge + modal */
+  /* categories: welcome cards + header badge + modal — v1.9.0: کارت «ساخت عکس» استودیو را باز می‌کند */
   document.querySelectorAll('.cat-card').forEach((b) => {
     b.addEventListener('click', () => {
+      if (b.dataset.cat === 'image') {
+        saveFromStudioDefaults();
+        openStudio();
+        return;
+      }
       applyCat(b.dataset.cat, false);
       if ($('#cat-backdrop') && !$('#cat-backdrop').classList.contains('hidden')) closeCat();
     });
@@ -2921,7 +3076,10 @@ function boot() {
 
   document.querySelectorAll('.suggestion').forEach((b) => b.addEventListener('click', () => send(b.textContent)));
 
-  markCatCards(); updateWebBtn(); updateImageBtn(); applyLook();
+  /* v1.9.0: در موبایل سایدبار روی صفحهٔ خوش‌آمد نمی‌ماند — با اولین باز شدن بسته است */
+  if (window.innerWidth <= 760) $('#sidebar').classList.add('hidden');
+
+  markCatCards(); updateWebBtn(); updateImageBtn(); applyLook(); renderThemeGrid(); updateModelTrigger();
   studioStyle = settings.imgStyle || 'none';
   document.querySelectorAll('#studio-styles .style-chip').forEach((x) => x.classList.toggle('active', x.dataset.style === studioStyle));
   renderChatList(); renderMessages(); refreshStatus(); autoGrow();

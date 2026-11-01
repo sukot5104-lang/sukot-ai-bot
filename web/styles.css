@@ -131,6 +131,13 @@ body{
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .model-badge .ic{color:var(--pink);width:14px;height:14px}
+/* v1.9.0: دکمهٔ انتخاب مدل — قابل کلیک با پیکان و افکت لمس */
+.model-badge-btn{cursor:pointer;font-family:inherit;transition:all .18s ease;max-width:46%}
+.model-badge-btn .chev{color:var(--muted2);width:13px;height:13px;transition:transform .2s ease}
+.model-badge-btn:active{transform:scale(.97)}
+.model-badge-btn:hover{border-color:rgba(168,85,247,.6);box-shadow:var(--glow);color:var(--text)}
+.model-badge-btn:hover .chev{transform:translateY(2px);color:var(--accent)}
+.model-badge-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .topbar-actions{display:flex;gap:8px}
 
 /* ===== buttons ===== */
@@ -261,12 +268,53 @@ body{
 }
 .web-btn.mode-always:hover{filter:brightness(1.12)}
 
-/* ===== welcome ===== */
+/* ===== welcome (v1.9.0 — قابل اسکرول کامل) ===== */
 .welcome{
-  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:10px;padding:22px;text-align:center;background:transparent;z-index:5;overflow-y:auto;
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  padding:10px 14px;text-align:center;background:transparent;z-index:5;
+  overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+}
+/* نکتهٔ مهم: به‌جای justify-content:center (باگ کلاسیک برشِ بالا در فلکس + اسکرول)،
+   محتوا در یک wrapper با margin:auto قرار گرفت — هم وسط‌چین است و هم کاملاً اسکرول می‌شود */
+.welcome-inner{
+  margin:auto;display:flex;flex-direction:column;align-items:center;gap:9px;
+  padding:18px 4px;width:100%;max-width:860px;
 }
 .welcome.hidden{display:none}
+.welcome-chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:2px}
+.w-chip{
+  display:inline-flex;align-items:center;gap:7px;padding:5px 13px;border-radius:99px;
+  background:rgba(26,16,48,.75);border:1px solid var(--border-soft);
+  color:var(--muted);font-size:11.5px;
+}
+.w-chip .dot{width:8px;height:8px}
+.w-chip .ic{width:12px;height:12px;color:var(--accent)}
+.w-chip.w-ver{color:var(--text)}
+.w-stats{
+  display:grid;grid-template-columns:repeat(4,minmax(90px,150px));gap:8px;margin-top:4px;width:100%;
+  max-width:640px;
+}
+.w-stat{
+  display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;
+  background:rgba(26,16,48,.72);border:1px solid var(--border-soft);border-radius:14px;
+}
+.w-stat b{font-size:17px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-family:Consolas,"Vazirmatn",monospace}
+.w-stat span{font-size:10px;color:var(--muted2);line-height:1.6}
+.w-how{
+  width:100%;max-width:640px;margin-top:4px;padding:11px 14px;border-radius:14px;
+  background:rgba(26,16,48,.72);border:1px dashed var(--border-soft);text-align:right;
+}
+.w-how-title{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:bold;color:var(--text);margin-bottom:8px}
+.w-how-title .ic{color:var(--pink)}
+.w-steps{display:flex;flex-direction:column;gap:6px}
+.w-steps span{display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--muted);line-height:1.8}
+.w-steps i{
+  font-style:normal;width:19px;height:19px;min-width:19px;border-radius:7px;display:grid;place-items:center;
+  background:var(--grad);color:#fff;font-size:10.5px;font-weight:bold;margin-top:3px;
+}
+.w-foot{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted2);margin-top:6px}
+.w-foot b{color:var(--pink)}
+.w-heart{color:var(--pink);fill:var(--pink);width:13px;height:13px;animation:pulse 1.8s infinite}
 .petals{position:absolute;inset:0;overflow:hidden;pointer-events:none}
 .petals i{
   position:absolute;top:-30px;width:11px;height:11px;opacity:0;
@@ -389,7 +437,9 @@ body{
   width:100%;max-width:530px;position:relative;
   background:linear-gradient(180deg,#1c1136,#150c29);
   border:1px solid var(--border-soft);border-radius:22px;padding:22px;
-  max-height:92vh;overflow-y:auto;animation:fadein .22s ease;
+  max-height:92vh;max-height:92dvh;overflow-y:auto;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  animation:fadein .22s ease;
   box-shadow:0 20px 70px rgba(0,0,0,.55),0 0 40px rgba(168,85,247,.12);
 }
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
@@ -568,12 +618,18 @@ body{
   .suggestions{grid-template-columns:1fr}
   .cat-grid{grid-template-columns:repeat(2,minmax(140px,1fr));width:100%}
   .modal-cats{grid-template-columns:1fr}
-  .hero{width:130px;height:130px}
+  .hero{width:118px;height:118px}
   #messages{padding:16px 12px}
   #composer-wrap{padding:10px 12px calc(12px + env(safe-area-inset-bottom))}
   .topbar-left{gap:6px}
   .cat-badge{padding:6px 10px;font-size:11px}
-  #model-badge{display:none}
+  /* v1.9.0: نشان مدل روی موبایل هم دیده شود — انتخاب‌گر اصلی مدل است */
+  .model-badge-btn{display:flex;padding:6px 10px;font-size:11px;max-width:44%}
+  #btn-clear-chat{display:none}
+  .w-stats{grid-template-columns:repeat(2,1fr);max-width:420px}
+  .theme-grid{grid-template-columns:repeat(2,1fr)}
+  .welcome{padding:8px 10px}
+  .welcome-inner{padding:14px 2px}
 }
 
 /* ===== v1.6.0: ۸ تب تنظیمات (واکنش‌گرا) ===== */
@@ -698,6 +754,79 @@ body[data-theme="light"] .petals i{background:linear-gradient(135deg,#c4b5fd,#f9
 body[data-theme="light"] .recent-thumb,body[data-theme="light"] .run-editor textarea{background:#221539}
 body[data-theme="light"] .icon-btn{background:#ffffff}
 body[data-theme="light"] .toast{background:#ffffff;color:var(--text)}
+/* v1.9.0: پوشش تم روشن برای اجزای جدید */
+body[data-theme="light"] .w-stat,body[data-theme="light"] .w-chip,body[data-theme="light"] .w-how{background:#ffffff;border-color:var(--border-soft)}
+body[data-theme="light"] .theme-card{background:#ffffff;border-color:var(--border)}
+body[data-theme="light"] .model-card,body[data-theme="light"] .pick-trigger{background:#ffffff;border-color:var(--border)}
+
+/* — جنگل زمردی (v1.9.0) — */
+body[data-theme="emerald"]{
+  --accent:#34d399;--accent2:#059669;--pink:#6ee7b7;--err:#ff5d73;--ok:#34d399;
+  --grad:linear-gradient(135deg,#34d399,#059669 55%,#a7f3d0);
+  --glow:0 6px 26px rgba(52,211,153,.32);
+  --border-soft:rgba(52,211,153,.22);
+  --panel:#0a1f16;--panel2:#0f2c1f;--border:#1c4433;
+  background:
+    radial-gradient(1100px 560px at 85% -12%, rgba(5,150,105,.22), transparent 60%),
+    radial-gradient(820px 460px at -12% 112%, rgba(110,231,183,.10), transparent 60%),
+    #04120c;
+}
+body[data-theme="emerald"] #sidebar{background:linear-gradient(180deg,rgba(10,31,22,.96),rgba(4,18,12,.98))}
+body[data-theme="emerald"] .msg.bot .bubble{background:rgba(10,31,22,.88)}
+body[data-theme="emerald"] .msg.user .bubble{background:linear-gradient(135deg,#059669,#34d399);box-shadow:0 4px 18px rgba(5,150,105,.4)}
+body[data-theme="emerald"] .cat-card.active{background:linear-gradient(135deg,rgba(52,211,153,.2),rgba(110,231,183,.12))}
+body[data-theme="emerald"] .codeblock .code-bar{background:linear-gradient(135deg,rgba(52,211,153,.18),rgba(5,150,105,.10))}
+body[data-theme="emerald"] .brand-logo{border-color:rgba(52,211,153,.5);box-shadow:0 4px 18px rgba(52,211,153,.45)}
+body[data-theme="emerald"] .msg.bot .avatar{border-color:rgba(52,211,153,.5)}
+body[data-theme="emerald"] #topbar,body[data-theme="emerald"] #composer-wrap{background:rgba(7,24,17,.78)}
+body[data-theme="emerald"] .modal{background:linear-gradient(180deg,#0c231a,#081a12)}
+body[data-theme="emerald"] .petals i{background:linear-gradient(135deg,#a7f3d0,#34d399)}
+
+/* — غروب نارنجی (v1.9.0) — */
+body[data-theme="sunset"]{
+  --accent:#fb923c;--accent2:#ea580c;--pink:#fbbf24;--err:#ff5d73;--ok:#4ade80;
+  --grad:linear-gradient(135deg,#fb923c,#ea580c 55%,#fbbf24);
+  --glow:0 6px 26px rgba(251,146,60,.32);
+  --border-soft:rgba(251,146,60,.22);
+  --panel:#241209;--panel2:#331a0d;--border:#4f2a14;
+  background:
+    radial-gradient(1100px 560px at 85% -12%, rgba(234,88,12,.22), transparent 60%),
+    radial-gradient(820px 460px at -12% 112%, rgba(251,191,36,.10), transparent 60%),
+    #150a04;
+}
+body[data-theme="sunset"] #sidebar{background:linear-gradient(180deg,rgba(36,18,9,.96),rgba(21,10,4,.98))}
+body[data-theme="sunset"] .msg.bot .bubble{background:rgba(36,18,9,.88)}
+body[data-theme="sunset"] .msg.user .bubble{background:linear-gradient(135deg,#ea580c,#fb923c);box-shadow:0 4px 18px rgba(234,88,12,.4)}
+body[data-theme="sunset"] .cat-card.active{background:linear-gradient(135deg,rgba(251,146,60,.2),rgba(251,191,36,.12))}
+body[data-theme="sunset"] .codeblock .code-bar{background:linear-gradient(135deg,rgba(251,146,60,.18),rgba(234,88,12,.10))}
+body[data-theme="sunset"] .brand-logo{border-color:rgba(251,146,60,.5);box-shadow:0 4px 18px rgba(251,146,60,.45)}
+body[data-theme="sunset"] .msg.bot .avatar{border-color:rgba(251,146,60,.5)}
+body[data-theme="sunset"] #topbar,body[data-theme="sunset"] #composer-wrap{background:rgba(28,14,7,.78)}
+body[data-theme="sunset"] .modal{background:linear-gradient(180deg,#2a150b,#1d0f07)}
+body[data-theme="sunset"] .petals i{background:linear-gradient(135deg,#fed7aa,#fb923c)}
+
+/* — نیمه‌شبِ مشکی (v1.9.0) — */
+body[data-theme="midnight"]{
+  --accent:#8b95f8;--accent2:#6366f1;--pink:#c7d2fe;--err:#ff5d73;--ok:#3ddc97;
+  --grad:linear-gradient(135deg,#8b95f8,#6366f1 55%,#c7d2fe);
+  --glow:0 6px 26px rgba(99,102,241,.28);
+  --border-soft:rgba(139,149,248,.20);
+  --panel:#101320;--panel2:#181c2e;--border:#252a42;
+  background:
+    radial-gradient(1100px 560px at 85% -12%, rgba(99,102,241,.14), transparent 60%),
+    radial-gradient(820px 460px at -12% 112%, rgba(199,210,254,.07), transparent 60%),
+    #05060c;
+}
+body[data-theme="midnight"] #sidebar{background:linear-gradient(180deg,rgba(16,19,32,.97),rgba(5,6,12,.99))}
+body[data-theme="midnight"] .msg.bot .bubble{background:rgba(16,19,32,.9)}
+body[data-theme="midnight"] .msg.user .bubble{background:linear-gradient(135deg,#6366f1,#8b95f8);box-shadow:0 4px 18px rgba(99,102,241,.38)}
+body[data-theme="midnight"] .cat-card.active{background:linear-gradient(135deg,rgba(139,149,248,.18),rgba(199,210,254,.10))}
+body[data-theme="midnight"] .codeblock .code-bar{background:linear-gradient(135deg,rgba(139,149,248,.16),rgba(99,102,241,.10))}
+body[data-theme="midnight"] .brand-logo{border-color:rgba(139,149,248,.5);box-shadow:0 4px 18px rgba(99,102,241,.4)}
+body[data-theme="midnight"] .msg.bot .avatar{border-color:rgba(139,149,248,.5)}
+body[data-theme="midnight"] #topbar,body[data-theme="midnight"] #composer-wrap{background:rgba(10,12,22,.82)}
+body[data-theme="midnight"] .modal{background:linear-gradient(180deg,#12152a,#0a0c18)}
+body[data-theme="midnight"] .petals i{background:linear-gradient(135deg,#c7d2fe,#8b95f8)}
 
 /* ===== v1.6.0: اندازهٔ متن پیام + حالت کم‌انیمیشن ===== */
 .msg .bubble{font-size:var(--msgfs,14.5px)}
@@ -716,4 +845,86 @@ body.no-anim .petals{display:none}
 .prov-note{
   display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px 10px;
   border-radius:10px;background:rgba(61,220,151,.12);color:var(--ok);font-size:12px;
+}
+
+/* ===== v1.9.0: انتخاب‌گر تم — کارت‌های لمسی با پیش‌نمایش زنده ===== */
+.theme-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:9px;
+}
+.theme-card{
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  background:rgba(13,7,25,.55);border:1.5px solid var(--border);border-radius:15px;
+  padding:11px 6px 9px;cursor:pointer;font-family:inherit;color:var(--muted);
+  transition:all .16s ease;
+}
+.theme-card:hover{border-color:rgba(168,85,247,.55);color:var(--text);transform:translateY(-2px)}
+.theme-card.active{
+  border-color:var(--accent);color:var(--text);font-weight:bold;
+  background:linear-gradient(135deg,rgba(168,85,247,.16),rgba(244,114,182,.08));
+  box-shadow:0 0 0 3px rgba(168,85,247,.14),var(--glow);
+}
+.theme-card.active::after{content:'✓';position:relative}
+.theme-card .swatch{
+  width:100%;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.14);
+  box-shadow:inset 0 0 12px rgba(0,0,0,.25);
+}
+.theme-card b{font-size:11.5px;font-weight:600}
+.theme-card i{font-style:normal;font-size:9.5px;color:var(--muted2)}
+.sw-night{background:linear-gradient(135deg,#a855f7,#7c3aed 55%,#f472b6)}
+.sw-ocean{background:linear-gradient(135deg,#38bdf8,#0369a1 55%,#22d3ee)}
+.sw-emerald{background:linear-gradient(135deg,#34d399,#059669 55%,#a7f3d0)}
+.sw-sunset{background:linear-gradient(135deg,#fb923c,#ea580c 55%,#fbbf24)}
+.sw-light{background:linear-gradient(135deg,#ede9fe,#c4b5fd 55%,#fbcfe8);border-color:rgba(0,0,0,.12)!important}
+.sw-midnight{background:linear-gradient(135deg,#1f2937,#030712 60%,#4b5563)}
+
+/* ===== v1.9.0: دکمهٔ ماشینهٔ مدل در تنظیمات ===== */
+.pick-trigger{
+  display:flex;align-items:center;gap:11px;width:100%;text-align:right;
+  background:rgba(13,7,25,.7);border:1.5px solid var(--border);border-radius:14px;
+  padding:11px 13px;cursor:pointer;font-family:inherit;color:var(--text);
+  transition:all .16s ease;
+}
+.pick-trigger:hover{border-color:rgba(168,85,247,.6);box-shadow:var(--glow)}
+.pick-trigger:active{transform:scale(.985)}
+.pick-trigger>.ic{color:var(--pink);width:20px;height:20px}
+.pick-trigger .pt-body{flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0}
+.pick-trigger .pt-body b{font-size:13.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pick-trigger .pt-body i{font-style:normal;font-size:10.5px;color:var(--muted2)}
+.pick-trigger .chev{color:var(--muted2)}
+
+/* ===== v1.9.0: شیت انتخاب مدل — کارت‌های مدل ===== */
+.backdrop-top{z-index:70}
+.model-sheet{max-width:480px}
+.model-list{display:flex;flex-direction:column;gap:9px;margin:4px 0 6px}
+.model-card{
+  display:flex;align-items:flex-start;gap:11px;width:100%;text-align:right;
+  background:rgba(13,7,25,.55);border:1.5px solid var(--border);border-radius:16px;
+  padding:13px 13px;cursor:pointer;font-family:inherit;color:var(--text);
+  transition:all .16s ease;animation:fadein .22s ease;
+}
+.model-card:hover{border-color:rgba(168,85,247,.6);box-shadow:var(--glow);transform:translateY(-1px)}
+.model-card:active{transform:scale(.985)}
+.model-card.active{
+  border-color:var(--accent);
+  background:linear-gradient(135deg,rgba(168,85,247,.18),rgba(244,114,182,.10));
+  box-shadow:inset 0 0 0 1px rgba(168,85,247,.3),var(--glow);
+}
+.mc-radio{
+  width:21px;height:21px;min-width:21px;border-radius:50%;margin-top:2px;
+  border:2px solid var(--muted2);display:grid;place-items:center;transition:all .15s ease;
+}
+.model-card.active .mc-radio{border-color:var(--accent);background:var(--accent);box-shadow:0 0 0 4px rgba(168,85,247,.18)}
+.model-card.active .mc-radio::after{content:'';width:8px;height:8px;border-radius:50%;background:#fff}
+.mc-body{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+.mc-body>b{font-size:13.5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.mc-body .mc-desc{font-size:11.5px;color:var(--muted);line-height:1.85}
+.mc-tags{display:flex;gap:5px;flex-wrap:wrap}
+.mc-tags i{
+  font-style:normal;font-size:9.5px;color:var(--muted);
+  background:rgba(168,85,247,.12);border:1px solid var(--border-soft);
+  border-radius:99px;padding:2px 9px;
+}
+.mc-tag{
+  font-style:normal;font-size:9.5px;font-weight:bold;color:#fff;
+  background:var(--grad);border:none;border-radius:99px;padding:2.5px 9px;
 }
