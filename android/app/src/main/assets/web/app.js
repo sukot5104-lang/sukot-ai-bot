@@ -1,23 +1,37 @@
 /* ============================================================
-   سوکوت AI (Sukot AI) v1.7.0 — Persian AI chatbot
-   powered by TokenRouter · Cloudflare · Pollinations · Groq · Gemini · OpenRouter
+   سوکوت AI (Sukot AI) v1.8.0 — Persian AI chatbot
+   powered by Dahl(Gonka) · TokenRouter · Cloudflare · Pollinations · Groq · Gemini · OpenRouter
 
-   v1.7.0 highlights
-   - اتصال به API خارجی TokenRouter با کلید شخصی (Claude Opus 5.5 / GPT 5.6 Luna / GPT 5.4 Nano / Gemini 3.5 Flash)
-     — کلید و آدرس از قبل تنظیم است، فقط اجرا کن
-   - سوییچ خودکار بین سرویس‌ها: اگر موجودی/اتصال یک سرویس خراب بود، خودکار به پولینیشن رایگان می‌رود — دیگر هیچ‌وقت ارور نهایی نمی‌بینی
-   - خطاهای جدید دسته‌بندی‌شده: insufficient_user_quota (اتمام موجودی)، ربات‌گیر 1010، no-access → سوییچ خودکار + پیام فارسی روشن
-   - رفع باگ سوییچ پروایدر در مدیریت API (شناسهٔ خراب PROVIDERSodalProvider)
-   + تمام قابلیت‌های v1.6.0: استودیوی عکس، اجرای زندهٔ بازی، تنظیمات ۸ بخشی، ۳ تم
+   v1.8.0 highlights
+   - اتصال به شبکهٔ نسل جدید «دال» (inference.dahl.global) با کلید آمادهٔ شخصی
+     — مغز اصلی: GLM 5.3 Flash (استدلالی، فارسی‌زبان، ۱M توکن)
+   - هر ۳ مدل دال با درخواست واقعی تست و تأیید شد:
+     GLM 5.3 Flash ✓ · MiniMax M2.7 ✓ · DeepSeek V4 Flash ✓ (چت + استریم زنده)
+   - هوش استدلالی: فکرِ مدل به‌شکل «دارم عمیق فکر می‌کنم…» نمایش داده می‌شود و فقط جوابِ تمیز می‌ماند
+     (دو سبک پشتیبانی می‌شود: فیلد جداِ reasoning + تگ‌های <think> داخل متن)
+   - جبران خودکار سهمِ فکر: اگر فکرِ مدل کل سهم توکن را خورد و جوابی نیامد،
+     خودکار با سهم بزرگ‌تر ادامه می‌دهد (مدل‌های استدلالی هیچ‌وقت بی‌جواب نمی‌مانند)
+   - مدیریت عکس در سرویس دال: این سرویس فعلاً بینایی ندارد → متن پیام حفظ و کاربر با نکتهٔ فارسی مطلع می‌شود
+   + تمام قابلیت‌های v1.7.0: سوییچ خودکار سرویس‌ها، استودیوی عکس، بازی‌سازی، تنظیمات ۸ بخشی
    ============================================================ */
 'use strict';
 
 /* ---------- constants ---------- */
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 const CREATOR = 'Sukot';
 const DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const LEGACY_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
 const SEARCH_UA = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
+
+/* — سرویس اصلی جدید «دال» (شبکهٔ گونکا): کلید و آدرس از قبل تنظیم است —
+   هر ۳ مدل با درخواست واقعی تست شد (لیست مدل‌ها + چت + استریم SSE) ✓ */
+const DAHL_DEFAULT_BASE = 'https://inference.dahl.global/v1';
+const DAHL_DEFAULT_KEY = 'dahl_BpJ3iYHLpnWF9NAUkdhjs4Cg3uxto3Z1c';
+const DAHL_DEFAULT_MODEL = 'zai-org/GLM-5.3-Flash';
+/* مدل‌های استدلالی دال، فکرشان را از همان سهم max_tokens مصرف می‌کنند؛
+   با سهم کم، فکر تمام می‌شود و هیچ جوابی نمی‌آید (تست واقعی: ۱۰۰ توکن = فقط فکر)
+   → حداقل سهم برای سرویس دال بالاست تا فکر + جواب هر دو جا شوند */
+const DAHL_MIN_TOKENS = 2600;
 
 /* — سرویس خارجی شخصی کاربر (TokenRouter): کلید و آدرس پیش‌فرض — */
 const TR_DEFAULT_BASE = 'https://api.tokenrouter.com/v1';
@@ -216,8 +230,24 @@ function fallbackModel(dead) {
   return '@cf/openai/gpt-oss-120b';
 }
 
-/* ---------- پروایدرها: TokenRouter / کلادفلر / رایگان‌ها / دلخواه ---------- */
+/* ---------- پروایدرها: دال / TokenRouter / کلادفلر / رایگان‌ها / دلخواه ---------- */
 const PROVIDERS = {
+  dahl: {
+    name: 'دال (GLM 5.3 Flash)',
+    tokenUrl: 'کلید شخصی تو از قبل تنظیم شده — در باکس «API دال» قابل تغییر است',
+    needsAccount: false,
+    needsToken: false, /* کلید در dahlToken جدا ذخیره می‌شود و از قبل پر است */
+    endpoint: (s) => {
+      let b = (s.dahlBase || DAHL_DEFAULT_BASE).trim().replace(/\/+$/, '');
+      if (!/chat\/completions$/.test(b)) b += /\/v\d+$/.test(b) ? '/chat/completions' : '/v1/chat/completions';
+      return b;
+    },
+    models: {
+      'zai-org/GLM-5.3-Flash': 'GLM 5.3 Flash — مغز اصلی سوکوت · استدلالی و سریع (پیشنهادی)',
+      'MiniMaxAI/MiniMax-M2.7': 'MiniMax M2.7 — مغز قوی استدلالی',
+      'deepseek-ai/DeepSeek-V4-Flash-0731': 'DeepSeek V4 Flash — استدلال عمیق و دقیق'
+    }
+  },
   tokenrouter: {
     name: 'TokenRouter',
     tokenUrl: 'کلید شخصی تو از قبل تنظیم شده — در باکس «API خارجی شخصی» قابل تغییر است',
@@ -317,7 +347,8 @@ function loadSettings() {
   const out = Object.assign({
     token: '', account: '', base: '',
     extToken: TR_DEFAULT_KEY, extBase: TR_DEFAULT_BASE, extModel: TR_DEFAULT_MODEL,
-    provider: 'tokenrouter',
+    dahlToken: DAHL_DEFAULT_KEY, dahlBase: DAHL_DEFAULT_BASE,
+    provider: 'dahl',
     model: DEFAULT_MODEL, modelCustom: '',
     sys: '', temp: 0.7, style: 'detailed',
     cat: 'general', webSearch: 'auto', autoSpeak: false, speakRate: 1,
@@ -331,18 +362,26 @@ function loadSettings() {
     out.trMigrated = true;
     if (!out.extToken) out.extToken = TR_DEFAULT_KEY;
     if (!out.extBase) out.extBase = TR_DEFAULT_BASE;
-    out.provider = 'tokenrouter';
-    out.model = TR_DEFAULT_MODEL;
   }
   if (!out.extToken) out.extToken = TR_DEFAULT_KEY;
   if (!out.extBase) out.extBase = TR_DEFAULT_BASE;
+  /* مهاجرت یک‌باره به دال (شبکهٔ جدید v1.8.0 با کلید آماده) — بقیهٔ تنظیمات حفظ می‌شود */
+  if (!out.dahlMigrated) {
+    out.dahlMigrated = true;
+    if (!out.dahlToken) out.dahlToken = DAHL_DEFAULT_KEY;
+    if (!out.dahlBase) out.dahlBase = DAHL_DEFAULT_BASE;
+    out.provider = 'dahl';
+    out.model = DAHL_DEFAULT_MODEL;
+  }
+  if (!out.dahlToken) out.dahlToken = DAHL_DEFAULT_KEY;
+  if (!out.dahlBase) out.dahlBase = DAHL_DEFAULT_BASE;
   if (out.model === LEGACY_MODEL && !out.modelPicked) { out.model = DEFAULT_MODEL; }
   /* مهاجرت خودکار مدل‌های مردهٔ ذخیره‌شده به جایگزین سالم */
   if (out.model && DEAD_MODELS[out.model]) { out.model = DEAD_MODELS[out.model]; }
   if (!STYLES[out.style]) out.style = 'detailed';
   if (!CATEGORIES[out.cat]) out.cat = 'general';
   if (!['auto', 'always', 'off'].includes(out.webSearch)) out.webSearch = 'auto';
-  if (!PROVIDERS[out.provider]) out.provider = 'tokenrouter';
+  if (!PROVIDERS[out.provider]) out.provider = 'dahl';
   if (!['auto', 'cloudflare', 'pollinations'].includes(out.imageEngine)) out.imageEngine = 'auto';
   if (!['none','realistic','anime','digital','watercolor','pixel','render3d','gameart'].includes(out.imgStyle)) out.imgStyle = 'none';
   if (!['night', 'ocean', 'light'].includes(out.theme)) out.theme = 'night';
@@ -935,14 +974,18 @@ function errCat(msg) {
 /* ---------- one-shot request used by "test connection" ---------- */
 function testConnection(cb) {
   const p0 = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
+  /* تست همیشه سرویسِ انتخاب‌شدهٔ واقعی را می‌سنجد، نه سرویسی که فالبک قبلی فعال کرده */
+  activeProvider = null;
   const url = apiUrl();
   if (!url) { cb(false, 'آدرس API خالی است — در تب «اتصال» سرویس یا آدرس خارجی را تنظیم کن.'); return; }
   const needTok = p0.needsToken !== false;
   const needAcct = p0.needsAccount && !(settings.base || '').trim();
   if ((needTok && !settings.token.trim()) || (needAcct && !settings.account.trim())) { cb(false, 'ابتدا توکن (و برای کلادفلر Account ID) را در تب «اتصال» وارد کن.'); return; }
   const tryModel = (model, retried, note) => {
+    /* مدل‌های استدلالی دال فکرشان را از سهم می‌خورند — با سهم کم جوابی نمی‌آید */
+    const isDahlTest = settings.provider === 'dahl';
     const body = {
-      model: model, stream: true, max_tokens: 60,
+      model: model, stream: true, max_tokens: isDahlTest ? 600 : 60,
       messages: [{ role: 'user', content: 'سلام! فقط بگو: اتصال برقرار است' }]
     };
     let acc = '';
@@ -967,7 +1010,7 @@ function testConnection(cb) {
         return;
       }
       if (err) cb(false, 'خطای ' + errCat(err) + ': ' + err);
-      else if (!acc.trim()) cb(false, 'خطای پاسخ: اتصال برقرار شد ولی مدلی جواب نداد — مدل یا Account ID را بررسی کن.');
+      else if (!stripThink(acc).text.trim()) cb(false, 'خطای پاسخ: اتصال برقرار شد ولی مدلی جواب نداد — مدل یا Account ID را بررسی کن.');
       else { activeProvider = null; cb(true, (note || '') + 'اتصال موفق ✓ — پاسخ واقعی مدل: ' + stripThink(acc).text.trim().slice(0, 120)); }
     });
   };
@@ -986,7 +1029,8 @@ function providerChain() {
 function apiUrl(p) {
   const s = settings;
   const pid = p || curProvider();
-  /* سرویس خارجی شخصی (TokenRouter) آدرس مخصوص خودش را دارد */
+  /* سرویس دال (اصلی) و سرویس خارجی شخصی (TokenRouter) آدرس مخصوص خودشان را دارند */
+  if (pid === 'dahl') return (PROVIDERS.dahl.endpoint)(s);
   if (pid === 'tokenrouter') return (PROVIDERS.tokenrouter.endpoint)(s);
   /* override دستی همیشه اولویت دارد (برای تست/سرویس دلخواه) */
   if (s.base && s.base.trim()) {
@@ -1005,12 +1049,18 @@ function apiHeaders(p) {
   const pid = p || curProvider();
   const h = { 'Content-Type': 'application/json' };
   /* پولینیشن بدون کلید کار می‌کند — هدر احراز فقط وقتی توکن هست */
-  const tok = pid === 'tokenrouter' ? (settings.extToken || TR_DEFAULT_KEY).trim() : (settings.token || '').trim();
+  const tok = pid === 'dahl' ? (settings.dahlToken || DAHL_DEFAULT_KEY).trim()
+    : pid === 'tokenrouter' ? (settings.extToken || TR_DEFAULT_KEY).trim()
+    : (settings.token || '').trim();
   if (tok) h['Authorization'] = 'Bearer ' + tok;
   return h;
 }
 function chosenModel(p) {
   const pid = p || curProvider();
+  if (pid === 'dahl') {
+    const ids = Object.keys(PROVIDERS.dahl.models);
+    return ids.indexOf(settings.model) !== -1 ? settings.model : DAHL_DEFAULT_MODEL;
+  }
   if (pid === 'tokenrouter') {
     const ids = Object.keys(PROVIDERS.tokenrouter.models);
     return ids.indexOf(settings.model) !== -1 ? settings.model : TR_DEFAULT_MODEL;
@@ -1021,6 +1071,7 @@ function chosenModel(p) {
 function prettyModel(id) {
   if (!id) return '—';
   if (MODEL_NAMES[id]) return MODEL_NAMES[id];
+  if (PROVIDERS.dahl.models[id]) return PROVIDERS.dahl.models[id].split('—')[0].trim();
   if (PROVIDERS.tokenrouter.models[id]) return PROVIDERS.tokenrouter.models[id].split('—')[0].trim();
   if (id === 'openai-fast') return 'مغز رایگان پولینیشن';
   return id.length > 26 ? id.slice(0, 26) + '…' : id;
@@ -1694,7 +1745,10 @@ async function send(textRaw) {
     const userText = (text || '') + (fileChunks ? '\n\n' + fileChunks : '');
     let content = userText;
     if (imgAtts.length) {
-      if (settings.provider === 'cloudflare' && !isVision(chosenModel())) {
+      if (settings.provider === 'dahl') {
+        /* سرویس دال فعلاً بینایی ندارد (تست واقعی: image_url پشتیبانی نمی‌شود) — متن پیام حفظ می‌شود */
+        visionNote = 'سرویس فعلی دیدن عکس را ساپورت نمی‌کند؛ متن پیام‌ات را خواندم و بر همان اساس جواب می‌دهم.';
+      } else if (settings.provider === 'cloudflare' && !isVision(chosenModel())) {
         settings.model = DEFAULT_VISION_MODEL;
         saveSettings(settings); refreshStatus();
         visionNote = 'تصویر فرستادی؛ برای دیدنش خودکار به مدل بینا «' + prettyModel(DEFAULT_VISION_MODEL) + '» سوئیچ کردم.';
@@ -1729,6 +1783,9 @@ async function send(textRaw) {
 
   const style = STYLES[settings.style] || STYLES.detailed;
   let maxTokens = style.max_tokens;
+  /* مدل‌های استدلالی دال فکرشان را از سهم max_tokens مصرف می‌کنند — سهم کمتر از حداقل کافی نیست */
+  const willUseDahl = settings.provider === 'dahl';
+  if (willUseDahl) maxTokens = Math.max(maxTokens, DAHL_MIN_TOKENS);
 
   const renderAcc = (rawAcc) => {
     const v = stripThink(rawAcc);
@@ -1749,6 +1806,7 @@ async function send(textRaw) {
   let full = '';
   let finalErr = null;
   let fellBack = false;
+  let reasoningRetried = false;
   const chain = providerChain();
   let ci = 0;
   activeProvider = chain[0];
@@ -1770,6 +1828,16 @@ async function send(textRaw) {
     /* اگر سقف طول پاسخ مدل را رد کرد، نصف کن و همان دور را دوباره بگیر */
     if (finalErr && /طول پاسخ|max_tokens/i.test(finalErr) && maxTokens > 900) {
       maxTokens = Math.max(900, Math.floor(maxTokens / 2));
+      round--; continue;
+    }
+
+    /* مدل استدلالی فکر کرد، سهم توکن تمام شد ولی جوابی نیامد؟
+       یک بار با سهم بزرگ‌تر ادامه بده (تست واقعی دال: با ۱۰۰ توکن فقط فکر می‌آید) */
+    if (!finalErr && !stripThink(acc).text && activeProvider === 'dahl' && !reasoningRetried) {
+      reasoningRetried = true;
+      maxTokens = Math.min(8192, Math.max(DAHL_MIN_TOKENS, maxTokens * 2));
+      w.querySelector('.bubble').innerHTML = toolNoteHTML('مدل در حال فکر کردن بوده و سهم پاسخ تمام شده — خودکار با سهم بزرگ‌تر ادامه می‌دهم…');
+      scrollBottom(false);
       round--; continue;
     }
 
@@ -2327,16 +2395,19 @@ function applyProviderUI() {
   const p = PROVIDERS[modalProvider] || PROVIDERS.cloudflare;
   const isCF = modalProvider === 'cloudflare';
   const isTR = modalProvider === 'tokenrouter';
+  const isDahl = modalProvider === 'dahl';
   const acc = $('#field-account');
   if (acc) acc.classList.toggle('hidden', !isCF);
   const tr = $('#token-req');
-  if (tr) tr.classList.toggle('hidden', p.needsToken === false || isTR);
+  if (tr) tr.classList.toggle('hidden', p.needsToken === false || isTR || isDahl);
   const box = $('#box-keys');
-  if (box) box.classList.toggle('hidden', p.needsToken === false || isTR);
+  if (box) box.classList.toggle('hidden', p.needsToken === false || isTR || isDahl);
   const ext = $('#box-ext-api');
   if (ext) ext.classList.toggle('hidden', !isTR);
+  const dbox = $('#box-dahl-api');
+  if (dbox) dbox.classList.toggle('hidden', !isDahl);
   const kt = $('#keys-title');
-  if (kt) kt.textContent = (p.needsToken === false && !isTR) ? 'این سرویس کلید نمی‌خواهد — فقط مدل را انتخاب کن' : 'کلید و حساب سرویس';
+  if (kt) kt.textContent = (p.needsToken === false && !isTR && !isDahl) ? 'این سرویس کلید نمی‌خواهد — فقط مدل را انتخاب کن' : 'کلید و حساب سرویس';
 }
 function rebuildModelSelect() {
   const sel = $('#set-model');
@@ -2370,10 +2441,13 @@ function rebuildModelSelect() {
   $('#set-model-custom').value = want && sel.value === 'custom' ? (settings.modelCustom || (want !== 'custom' ? want : cur)) : (settings.modelCustom || '');
   $('#set-model-custom').classList.toggle('hidden', sel.value !== 'custom');
   $('#provider-hint').innerHTML = (p.needsToken === false
-    ? (modalProvider === 'tokenrouter'
+    ? (modalProvider === 'dahl'
+      ? 'کلید و آدرس دال از قبل تنظیم شده ✓ — فقط مدل را انتخاب کن و بفرست (تست‌شده با درخواست واقعی)'
+      : modalProvider === 'tokenrouter'
       ? 'کلید شخصی تو از قبل تنظیم شده ✓ — اگر موجودی تمام شود خودکار با سرویس رایگان جواب می‌گیری'
       : 'بدون کلید و بدون ثبت‌نام — همین حالا کار می‌کند')
     : 'دریافت کلید: <span class="en" dir="ltr">' + esc(p.tokenUrl) + '</span>' + (p.needsAccount ? ' + Account ID' : '')) +
+    (modalProvider === 'dahl' ? ' — مدل‌های دال: GLM 5.3 Flash · MiniMax M2.7 · DeepSeek V4 Flash' : '') +
     (modalProvider === 'tokenrouter' ? ' — مدل‌های کلید تو: Claude Opus 5.5 · GPT 5.6 Luna · GPT 5.4 Nano · Gemini 3.5 Flash' : '') +
     (modalProvider === 'pollinations' ? ' — محدودیت رایگان: هر ۴۵ ثانیه یک پیام؛ برای کار سنگین کلادفلر یا Groq را انتخاب کن' : '') +
     (modalProvider === 'groq' ? ' — رایگان حدود ۳۰ درخواست در دقیقه' : '') +
@@ -2383,9 +2457,11 @@ function rebuildModelSelect() {
 }
 
 function openSettings() {
-  modalProvider = settings.provider || 'tokenrouter';
+  modalProvider = settings.provider || 'dahl';
   $('#set-provider').value = modalProvider;
   switchTab('general');
+  $('#set-dahl-base').value = settings.dahlBase || DAHL_DEFAULT_BASE;
+  $('#set-dahl-key').value = settings.dahlToken || DAHL_DEFAULT_KEY;
   $('#set-ext-base').value = settings.extBase || TR_DEFAULT_BASE;
   $('#set-ext-key').value = settings.extToken || TR_DEFAULT_KEY;
   $('#set-token').value = settings.token;
@@ -2420,13 +2496,15 @@ function readSettingsFromModal() {
   const sel = $('#set-model');
   const customVal = $('#set-model-custom').value.trim();
   return {
+    dahlToken: ($('#set-dahl-key').value || '').trim() || DAHL_DEFAULT_KEY,
+    dahlBase: ($('#set-dahl-base').value || '').trim() || DAHL_DEFAULT_BASE,
     extToken: ($('#set-ext-key').value || '').trim() || TR_DEFAULT_KEY,
     extBase: ($('#set-ext-base').value || '').trim() || TR_DEFAULT_BASE,
     extModel: TR_DEFAULT_MODEL,
     token: $('#set-token').value.trim(),
     account: $('#set-account').value.trim(),
     base: $('#set-base').value.trim(),
-    provider: $('#set-provider').value || 'tokenrouter',
+    provider: $('#set-provider').value || 'dahl',
     model: sel.value === 'custom' ? (customVal || sel.value) : sel.value,
     modelCustom: customVal,
     sys: $('#set-sysprompt').value.trim(),
@@ -2467,13 +2545,14 @@ function saveFromModal() {
 function refreshStatus() {
   const p = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
   const isTR = settings.provider === 'tokenrouter';
-  const needTok = isTR ? false : (p.needsToken !== false);
+  const isDahl = settings.provider === 'dahl';
+  const needTok = (isTR || isDahl) ? false : (p.needsToken !== false);
   const needAcct = p.needsAccount && !(settings.base || '').trim();
-  const ok = (!needTok || (isTR ? !!(settings.extToken || TR_DEFAULT_KEY) : settings.token.trim())) && (!needAcct || settings.account.trim());
+  const ok = (!needTok || (isTR ? !!(settings.extToken || TR_DEFAULT_KEY) : isDahl ? !!(settings.dahlToken || DAHL_DEFAULT_KEY) : settings.token.trim())) && (!needAcct || settings.account.trim());
   const dot = $('#status-dot');
   if (dot.className.indexOf('dot-live') === -1) {
     dot.className = 'dot ' + (ok ? 'dot-on' : 'dot-off');
-    $('#status-text').textContent = ok ? (needTok ? 'متصل — ' + p.name : 'آماده — ' + p.name + (isTR ? ' ✓' : ' (بدون کلید)')) : 'تنظیمات لازم است';
+    $('#status-text').textContent = ok ? (needTok ? 'متصل — ' + p.name : (isTR || isDahl) ? 'آماده — ' + p.name : 'آماده — ' + p.name + ' (بدون کلید)') : 'تنظیمات لازم است';
   }
   $('#model-badge span').textContent = prettyModel(chosenModel());
   refreshCatBadge();
@@ -2484,7 +2563,8 @@ function refreshStatus() {
 function liveCheck() {
   const p = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
   const isTR = settings.provider === 'tokenrouter';
-  const needTok = isTR ? false : (p.needsToken !== false);
+  const isDahl = settings.provider === 'dahl';
+  const needTok = (isTR || isDahl) ? false : (p.needsToken !== false);
   const needAcct = p.needsAccount && !(settings.base || '').trim();
   if ((needTok && !settings.token.trim()) || (needAcct && !settings.account.trim())) return;
   const chain = providerChain();
@@ -2500,7 +2580,8 @@ function liveCheck() {
     if (!url) { attempt(pi + 1, null, false); return; }
     const mdl = model || chosenModel(pid);
     let acc = '';
-    const body = { model: mdl, stream: true, max_tokens: 24, messages: [{ role: 'user', content: 'سلام' }] };
+    /* مدل‌های استدلالی دال فکرشان را از سهم می‌خورند — سهم کم یعنی جواب خالی و چراغِ قرمزِ بی‌دلیل */
+    const body = { model: mdl, stream: true, max_tokens: pid === 'dahl' ? 600 : 24, messages: [{ role: 'user', content: 'سلام' }] };
     streamRequest(url, apiHeaders(pid), body, (t) => { acc += t; }, (err) => {
       const dot = $('#status-dot'), txt = $('#status-text');
       if (err && err.indexOf('[model-unavailable]') !== -1 && !retriedModel) {
@@ -2645,6 +2726,10 @@ function boot() {
     }
     if (modalProvider === 'tokenrouter') {
       settings.model = TR_DEFAULT_MODEL;
+    }
+    if (modalProvider === 'dahl') {
+      const ids = Object.keys(PROVIDERS.dahl.models);
+      if (ids.indexOf(settings.model) === -1) settings.model = DAHL_DEFAULT_MODEL;
     }
     rebuildModelSelect();
   });

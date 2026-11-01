@@ -1,7 +1,7 @@
 {
   "name": "سوکوت AI — دستیار هوشمند فارسی",
   "short_name": "سوکوت AI",
-  "description": "دستیار گفتگوی هوشمند فارسی با مغز بزرگ و حافظهٔ بلندمدت — ساخت Sukot، با قدرت Cloudflare Workers AI",
+  "description": "دستیار گفتگوی هوشمند فارسی با مغز بزرگ و حافظهٔ بلندمدت — ساخت Sukot، با مغز GLM 5.3 Flash روی شبکهٔ دال + کلادفلر و سرویس‌های رایگان",
   "lang": "fa",
   "dir": "rtl",
   "start_url": "./index.html",
