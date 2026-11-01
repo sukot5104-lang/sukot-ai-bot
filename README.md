@@ -11,13 +11,19 @@
 | پلتفرم | فایل | وضعیت ساخت |
 |---|---|---|
 | 🤖 اندروید (APK) | `Sukot-AI-Bot-android.apk` | ![Android](https://github.com/sukot5104-lang/sukot-ai-bot/actions/workflows/android.yml/badge.svg) |
-| 🪟 ویندوز (نصبی + پرتابل) | `Sukot-AI-Bot-Setup-1.10.0.exe` / `Sukot-AI-Bot-Portable-1.10.0.exe` | ![Windows](https://github.com/sukot5104-lang/sukot-ai-bot/actions/workflows/windows.yml/badge.svg) |
+| 🪟 ویندوز (نصبی + پرتابل) | `Sukot-AI-Bot-Setup-1.10.1.exe` / `Sukot-AI-Bot-Portable-1.10.1.exe` | ![Windows](https://github.com/sukot5104-lang/sukot-ai-bot/actions/workflows/windows.yml/badge.svg) |
 | 🌐 وب / PWA | پوشه `web/` | همیشه با repo |
 
 > 📦 **دانلود فایل‌های آماده:** بخش [Releases](../../releases) این ریپازیتوری.
 > 🌐 **نسخه آنلاین (بدون نصب):** https://sukot5104-lang.github.io/sukot-ai-bot/
 
 ## ✨ امکانات
+
+### رفع ارور «محدودیت درخواست» دال — فالبک خودکار مغز شلوغ (1.10.1)
+- 🚦 **وقتی مغز GLM 5.3 Flash روی پلن رایگان لحظه‌ای شلوغ باشد** (خطای `model_concurrency`)، سوکوت دیگر ارور نمی‌دهد — **خودکار با مغزِ آزادِ همان سرویس** (MiniMax M2.7 یا DeepSeek V4 Flash) ادامه می‌دهد و پایین جواب صادقانه می‌نویسد: «مغز GLM همین لحظه شلوغ بود؛ این پاسخ با مغز جایگزین … داده شد»
+- 🛟 اگر هر ۳ مغز دال همزمان شلوغ باشند، خودکار به **سرویس رایگان پولینیشن** سوییچ می‌کند — دیگر هیچ‌وقت پیام بی‌جواب نمی‌ماند
+- 💡 چراغ وضعیت زندهٔ بالای صفحه و دکمهٔ «تست اتصال» هم با مغز جایگزین سبز می‌شوند و نام مغزی که واقعاً جواب داده را نشان می‌دهند
+- ✅ شبیه‌سازی کامل هر دو سناریو (GLM شلوغ → MiniMax جواب داد / هر ۳ شلوغ → پولینیشن جواب داد) + هر دو بستهٔ قبلی تست رابط — همه پاس
 
 ### حذف TokenRouter/OpenRouter + رفع باگ «فقط ۳ مدل» کلادفلر (1.10.0)
 - 🧹 **دو سرویس TokenRouter و OpenRouter به‌کامل از فهرست پلن‌ها حذف شدند** (به خواست کاربر) — کسی که روی آن‌ها بود خودکار به «دال» با کلید آماده منتقل می‌شود و چیزی از دست نمی‌دهد

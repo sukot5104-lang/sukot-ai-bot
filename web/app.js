@@ -1,6 +1,14 @@
 /* ============================================================
-   سوکوت AI (Sukot AI) v1.10.0 — Persian AI chatbot
+   سوکوت AI (Sukot AI) v1.10.1 — Persian AI chatbot
    powered by Dahl(Gonka) · Cloudflare · Pollinations · Groq · Gemini
+
+   v1.10.1 highlights
+   - رفع ارور «محدودیت تعداد درخواست» دال: خطای جدید model_concurrency (شلوغی لحظه‌ای مغز
+     روی پلن رایگان) شناسایی می‌شود → سوکوت خودکار با مغزِ آزادِ همان سرویس (MiniMax/DeepSeek)
+     ادامه می‌دهد؛ اگر هر ۳ مغز شلوغ باشند، سوییچ خودکار به سرویس رایگان پولینیشن
+   - پیام صادقانهٔ فارسی: «مغز GLM همین لحظه شلوغ بود؛ این پاسخ با مغز جایگزین … داده شد»
+   - چراغ وضعیت زنده و «تست اتصال» هم با مغز جایگزین سبز می‌شوند
+   - پیام خطای 429 عمومی دقیق‌تر شد (دیگر «پایان اعتبار روزانه» بی‌دلیل گفته نمی‌شود)
 
    v1.10.0 highlights
    - حذف کامل دو سرویس TokenRouter و OpenRouter از فهرست پلن‌ها (به خواست کاربر)
@@ -25,7 +33,7 @@
 'use strict';
 
 /* ---------- constants ---------- */
-const APP_VERSION = '1.10.0';
+const APP_VERSION = '1.10.1';
 const CREATOR = 'Sukot';
 const DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const LEGACY_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
@@ -635,6 +643,9 @@ function createSSEParser(onDelta) {
   };
 }
 
+/* v1.10.1: مدل‌های آزادِ استخراج‌شده از خطای model_concurrency دال — برای فالبک فوری */
+let BUSY_ALT_MODELS = [];
+
 function friendlyError(status, bodyText) {
   let code = '', msg = '';
   try {
@@ -673,7 +684,18 @@ function friendlyError(status, bodyText) {
   if (status === 401 || code === 10000) return 'توکن نامعتبر یا منقضی است. یک توکن جدید بسازید.';
   if (status === 403) return 'دسترسی رد شد. توکن باید دسترسی «Workers AI — Edit» داشته باشد.';
   if (status === 404) return 'مدل یا آدرس پیدا نشد. نام مدل و Account ID را بررسی کنید.';
-  if (status === 429) return 'محدودیت تعداد درخواست (rate limit) یا پایان اعتبار روزانهٔ پلن. چند لحظه بعد یا با مدل سبک‌تر امتحان کنید.';
+  /* v1.10.1: شلوغی لحظه‌ای مغز دال (model_concurrency) — سوکوت خودکار با مغز آزادِ همان سرویس ادامه می‌دهد
+     بدنهٔ خطا: "Other models available now: MiniMaxAI/MiniMax-M2.7, deepseek-ai/DeepSeek-V4-Flash-0731."
+     → لیست مدل‌های آزاد استخراج و در BUSY_ALT_MODELS برای فالبک فوری نگه داشته می‌شود */
+  if (code === 'model_concurrency' || /concurrency capacity|at concurrency/i.test(msg)) {
+    BUSY_ALT_MODELS = [];
+    /* توجه: شناسهٔ مدل‌ها خودشان نقطه دارند (مثل MiniMax-M2.7) → تا «. You can switch» می‌گیریم، نه تا اولین نقطه */
+    const av = String(msg).match(/Other models available now:\s*([\s\S]*?)\.\s*(?:You can switch|Retry|$)/i);
+    if (av) BUSY_ALT_MODELS = av[1].split(',').map((x) => x.trim().replace(/\.$/, '')).filter((x) => x && x.indexOf('/') !== -1);
+    return '[model-busy] مغز انتخابی همین لحظه شلوغ است (پلن رایگان در صف است) — سوکوت خودکار با مغز آزاد ادامه می‌دهد.';
+  }
+
+  if (status === 429) return 'محدودیت موقت درخواست‌ها (rate limit). چند لحظه بعد دوباره امتحان کن — یا مدل سبک‌تری انتخاب کن.';
   if (status >= 500) return 'خطای سرور کلادفلر. کمی بعد دوباره تلاش کنید.';
   return 'خطا ' + (status || '') + ': ' + (msg || 'نامشخص');
 }
@@ -971,6 +993,15 @@ function testConnection(cb) {
         const alt = fallbackModel(model);
         tryModel(alt, true, 'مدل «' + prettyModel(model) + '» روی این حساب فعال نیست — تست با «' + prettyModel(alt) + '»: ');
         return;
+      }
+      /* v1.10.1: مغز دال شلوغ بود؟ تست با مغزِ آزادِ همان سرویس (یک بار) */
+      if (err && err.indexOf('[model-busy]') !== -1 && !retried) {
+        const dahlIds = Object.keys(PROVIDERS.dahl.models);
+        const balt = (BUSY_ALT_MODELS || []).find((id) => id !== model && dahlIds.indexOf(id) !== -1);
+        if (balt) {
+          tryModel(balt, true, 'مغز «' + prettyModel(model) + '» همین لحظه شلوغ بود — تست با «' + prettyModel(balt) + '»: ');
+          return;
+        }
       }
       /* موجودی/دسترسی سرویس؟ با سرویس رایگان پولینیشن تست کن */
       if (err && err.indexOf('[provider-quota]') !== -1 && !provRetried) {
@@ -1776,6 +1807,8 @@ async function send(textRaw) {
   let finalErr = null;
   let fellBack = false;
   let reasoningRetried = false;
+  const busyTried = {}; /* v1.10.1: مغزهای جایگزینِ امتحان‌شده در شلوغی — از حلقه بی‌نهایت جلوگیری می‌کند */
+  let overrideModel = null; /* v1.10.1: مغز جایگزین موقت برای همین پیام — تنظیمات کاربر عوض نمی‌شود */
   const chain = providerChain();
   let ci = 0;
   activeProvider = chain[0];
@@ -1783,7 +1816,7 @@ async function send(textRaw) {
     let acc = '';
     finalErr = await new Promise((resolve) => {
       const body = {
-        model: chosenModel(activeProvider), stream: true,
+        model: overrideModel || chosenModel(activeProvider), stream: true,
         temperature: Number(settings.temp) || 0.7,
         max_tokens: maxTokens,
         messages: messages
@@ -1808,6 +1841,31 @@ async function send(textRaw) {
       w.querySelector('.bubble').innerHTML = toolNoteHTML('مدل در حال فکر کردن بوده و سهم پاسخ تمام شده — خودکار با سهم بزرگ‌تر ادامه می‌دهم…');
       scrollBottom(false);
       round--; continue;
+    }
+
+    /* v1.10.1: مغز انتخابی لحظه‌ای شلوغ بود (model_concurrency دال)؟
+       اول خودکار با مغزِ آزادِ همان سرویس ادامه بده؛ اگر هیچ‌کدام آزاد نبود، سرویس رایگان */
+    if (finalErr && finalErr.indexOf('[model-busy]') !== -1) {
+      const dead = overrideModel || chosenModel(activeProvider);
+      busyTried[dead] = true;
+      const dahlIds = Object.keys(PROVIDERS.dahl.models);
+      const alt = (BUSY_ALT_MODELS || []).find((id) => id !== dead && dahlIds.indexOf(id) !== -1 && !busyTried[id]);
+      if (activeProvider === 'dahl' && alt) {
+        busyTried[alt] = true;
+        overrideModel = alt;
+        w.querySelector('.bubble').innerHTML = toolNoteHTML('مغز «' + prettyModel(dead) + '» همین لحظه شلوغ است — خودکار با مغز آزاد «' + prettyModel(alt) + '» ادامه می‌دهم…');
+        scrollBottom(false);
+        round--; continue;
+      }
+      if (ci < chain.length - 1) {
+        overrideModel = null;
+        ci++;
+        activeProvider = chain[ci];
+        w.querySelector('.bubble').innerHTML = toolNoteHTML('همهٔ مغزهای «' + (PROVIDERS.dahl || {}).name + '» همین لحظه شلوغ‌اند — سوییچ خودکار به سرویس رایگان «' + (PROVIDERS[activeProvider] || {}).name + '»…');
+        scrollBottom(false);
+        round--; continue;
+      }
+      /* آخر زنجیره بودیم — خطا را همان‌طور که هست نشان بده */
     }
 
     /* مدل در دسترس نبود (بازنشسته/لایسنس/پلن)؟ یک بار خودکار با مدل پایدار ادامه بده */
@@ -1874,6 +1932,10 @@ async function send(textRaw) {
   let provNote = '';
   if (usedProvider && usedProvider !== settings.provider && !finalErr && finalText.trim()) {
     provNote = '<p class="prov-note"><svg class="ic ic-sm"><use href="#i-bolt"/></svg><span>این پاسخ با سرویس «' + esc((PROVIDERS[usedProvider] || {}).name || '') + '» داده شد (سوییچ خودکار).</span></p>';
+  }
+  /* v1.10.1: اگر با مغز جایگزین جواب آمد، صادقانه بگو با کدام مغز جواب گرفته */
+  if (overrideModel && !finalErr && finalText.trim()) {
+    provNote += '<p class="prov-note"><svg class="ic ic-sm"><use href="#i-chip"/></svg><span>مغز «' + esc(prettyModel(chosenModel('dahl'))) + '» همین لحظه شلوغ بود؛ این پاسخ با مغز جایگزین «' + esc(prettyModel(overrideModel)) + '» داده شد — پیام بعدی دوباره مغز اصلی را امتحان می‌کنم.</span></p>';
   }
   if (finalErr) {
     if (!finalText.trim()) bubble.innerHTML = errorHTML(finalErr);
@@ -2694,6 +2756,16 @@ function liveCheck() {
       if (err && err.indexOf('[model-unavailable]') !== -1 && !retriedModel) {
         attempt(pi, fallbackModel(mdl), true);
         return;
+      }
+      /* v1.10.1: مغز دال شلوغ بود؟ با مغزِ آزادِ همان سرویس چراغ را سبز کن (یک بار) */
+      if (err && err.indexOf('[model-busy]') !== -1 && !retriedModel && pi === 0 && pid === 'dahl') {
+        const dahlIds = Object.keys(PROVIDERS.dahl.models);
+        const alt = (BUSY_ALT_MODELS || []).find((id) => id !== mdl && dahlIds.indexOf(id) !== -1);
+        if (alt) {
+          BUSY_ALT_MODELS = [];
+          attempt(pi, alt, true);
+          return;
+        }
       }
       if (err && pi < chain.length - 1) {
         /* هر خطایی (موجودی/دسترسی/شبکه) → سرویس بعدی زنجیره */
