@@ -928,3 +928,11 @@ body.no-anim .petals{display:none}
   font-style:normal;font-size:9.5px;font-weight:bold;color:#fff;
   background:var(--grad);border:none;border-radius:99px;padding:2.5px 9px;
 }
+/* v1.10.0: تیترِ گروه‌بندی مدل‌ها در انتخاب‌گر کلادفلر */
+.mg-title{
+  font-size:11.5px;font-weight:bold;color:var(--muted);
+  display:flex;align-items:center;gap:7px;
+  margin:9px 2px -1px;letter-spacing:.2px;
+}
+.mg-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent)}
+body[data-theme="light"] .mg-title{color:#6b6480}

@@ -1,6 +1,14 @@
 /* ============================================================
-   سوکوت AI (Sukot AI) v1.8.0 — Persian AI chatbot
-   powered by Dahl(Gonka) · TokenRouter · Cloudflare · Pollinations · Groq · Gemini · OpenRouter
+   سوکوت AI (Sukot AI) v1.10.0 — Persian AI chatbot
+   powered by Dahl(Gonka) · Cloudflare · Pollinations · Groq · Gemini
+
+   v1.10.0 highlights
+   - حذف کامل دو سرویس TokenRouter و OpenRouter از فهرست پلن‌ها (به خواست کاربر)
+     — مهاجرت خودکارِ کاربرانی که روی این دو بودند به «دال» با کلید آماده
+   - رفع باگ «فقط ۳ مدل» : وقتی پلن را عوض می‌کنی، همین لحظه ذخیره و اعمال می‌شود
+     و انتخاب‌گرِ مدل، مدل‌های همان پلن را نشان می‌دهد (کلادفلر = هر ۲۷ مدل)
+   - انتخاب‌گر مدلِ کلادفلر با تیترِ گروه‌بندی: غول‌ها / عمومی / کد / استدلال / بینایی / سبک
+   - رفع باگ ماندگاری تم: تم‌های جدید (زمردی/غروب/نیمه‌شب) بعد از بستن برنامه هم می‌ماندند
 
    v1.8.0 highlights
    - اتصال به شبکهٔ نسل جدید «دال» (inference.dahl.global) با کلید آمادهٔ شخصی
@@ -17,7 +25,7 @@
 'use strict';
 
 /* ---------- constants ---------- */
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.10.0';
 const CREATOR = 'Sukot';
 const DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const LEGACY_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
@@ -32,11 +40,6 @@ const DAHL_DEFAULT_MODEL = 'zai-org/GLM-5.3-Flash';
    با سهم کم، فکر تمام می‌شود و هیچ جوابی نمی‌آید (تست واقعی: ۱۰۰ توکن = فقط فکر)
    → حداقل سهم برای سرویس دال بالاست تا فکر + جواب هر دو جا شوند */
 const DAHL_MIN_TOKENS = 2600;
-
-/* — سرویس خارجی شخصی کاربر (TokenRouter): کلید و آدرس پیش‌فرض — */
-const TR_DEFAULT_BASE = 'https://api.tokenrouter.com/v1';
-const TR_DEFAULT_KEY = 'sk-8X3lzcfPo6Pg4cDNGk30AyHiInYNZ68fToVsUluP6SGkC6xG';
-const TR_DEFAULT_MODEL = 'anthropic/claude-opus-5-5-advance-ai';
 
 const LS_SET = 'sukot_ai_settings_v1';
 const LS_CHAT = 'sukot_ai_chats_v1';
@@ -230,7 +233,7 @@ function fallbackModel(dead) {
   return '@cf/openai/gpt-oss-120b';
 }
 
-/* ---------- پروایدرها: دال / TokenRouter / کلادفلر / رایگان‌ها / دلخواه ---------- */
+/* ---------- پروایدرها: دال / کلادفلر / رایگان‌ها / دلخواه ---------- */
 const PROVIDERS = {
   dahl: {
     name: 'دال (GLM 5.3 Flash)',
@@ -246,23 +249,6 @@ const PROVIDERS = {
       'zai-org/GLM-5.3-Flash': 'GLM 5.3 Flash — مغز اصلی سوکوت · استدلالی و سریع (پیشنهادی)',
       'MiniMaxAI/MiniMax-M2.7': 'MiniMax M2.7 — مغز قوی استدلالی',
       'deepseek-ai/DeepSeek-V4-Flash-0731': 'DeepSeek V4 Flash — استدلال عمیق و دقیق'
-    }
-  },
-  tokenrouter: {
-    name: 'TokenRouter',
-    tokenUrl: 'کلید شخصی تو از قبل تنظیم شده — در باکس «API خارجی شخصی» قابل تغییر است',
-    needsAccount: false,
-    needsToken: false, /* کلید در extToken جدا ذخیره می‌شود و از قبل پر است */
-    endpoint: (s) => {
-      let b = (s.extBase || TR_DEFAULT_BASE).trim().replace(/\/+$/, '');
-      if (!/chat\/completions$/.test(b)) b += /\/v\d+$/.test(b) ? '/chat/completions' : '/v1/chat/completions';
-      return b;
-    },
-    models: {
-      'anthropic/claude-opus-5-5-advance-ai': 'Claude Opus 5.5 Advance — قوی‌ترین مغز (پیشنهادی)',
-      'openai/gpt-5.6-luna': 'GPT 5.6 Luna — نسل جدید OpenAI',
-      'openai/gpt-5.4-nano': 'GPT 5.4 Nano — سریع و سبک',
-      'google/gemini-3.5-flash-lite': 'Gemini 3.5 Flash Lite — سریع گوگل'
     }
   },
   cloudflare: {
@@ -318,19 +304,6 @@ const PROVIDERS = {
       'glm-4.5-flash': 'GLM-4.5-Flash — سریع و اقتصادی'
     }
   },
-  openrouter: {
-    name: 'OpenRouter — مدل‌های غول‌پیکر دنیا',
-    tokenUrl: 'openrouter.ai/keys',
-    needsAccount: false,
-    endpoint: () => 'https://openrouter.ai/api/v1/chat/completions',
-    models: {
-      'nvidia/nemotron-3-ultra-550b-a55b:free': 'Nemotron 3 Ultra — ۵۵۰B (رایگان، ۱M کانتکست)',
-      'thinkingmachines/inkling:free': 'Inkling — ۱M کانتکست (رایگان)',
-      'nvidia/nemotron-3.5-lightning:free': 'Nemotron 3.5 Lightning — ۱M کانتکست (رایگان)',
-      'google/gemma-4-31b-it:free': 'Gemma 4 31B (رایگان)',
-      'dots-studio/dots-3-note-preview:free': 'Dots 3 Note — ۵۱۲K کانتکست (رایگان)'
-    }
-  },
   custom: {
     name: 'سرویس دلخواه (سازگار با OpenAI)',
     tokenUrl: 'آدرس API را در فیلد پایین وارد کنید',
@@ -346,7 +319,6 @@ function loadSettings() {
   try { s = JSON.parse(store.getItem(LS_SET) || '{}'); } catch (e) {}
   const out = Object.assign({
     token: '', account: '', base: '',
-    extToken: TR_DEFAULT_KEY, extBase: TR_DEFAULT_BASE, extModel: TR_DEFAULT_MODEL,
     dahlToken: DAHL_DEFAULT_KEY, dahlBase: DAHL_DEFAULT_BASE,
     provider: 'dahl',
     model: DEFAULT_MODEL, modelCustom: '',
@@ -357,14 +329,15 @@ function loadSettings() {
     theme: 'night', fontScale: 1, anim: true,
     gameBigRun: true, runErrors: true
   }, s);
-  /* مهاجرت یک‌باره به TokenRouter (کلید شخصی کاربر) — بقیهٔ تنظیمات حفظ می‌شود */
-  if (!out.trMigrated) {
-    out.trMigrated = true;
-    if (!out.extToken) out.extToken = TR_DEFAULT_KEY;
-    if (!out.extBase) out.extBase = TR_DEFAULT_BASE;
+  let migrated = false;
+  /* v1.10.0: مهاجرت از سرویس‌های حذف‌شده (TokenRouter / OpenRouter) به «دال» با کلید آماده */
+  const REMOVED_PROVIDERS = ['tokenrouter', 'openrouter'];
+  const REMOVED_MODELS = ['anthropic/claude-opus-5-5-advance-ai', 'openai/gpt-5.6-luna', 'openai/gpt-5.4-nano', 'google/gemini-3.5-flash-lite', 'nvidia/nemotron-3-ultra-550b-a55b:free', 'thinkingmachines/inkling:free', 'nvidia/nemotron-3.5-lightning:free', 'google/gemma-4-31b-it:free', 'dots-studio/dots-3-note-preview:free'];
+  if (!out.srvMigrated) {
+    out.srvMigrated = true;
+    if (REMOVED_PROVIDERS.indexOf(out.provider) !== -1) { out.provider = 'dahl'; out.model = DAHL_DEFAULT_MODEL; migrated = true; }
+    if (REMOVED_MODELS.indexOf(out.model) !== -1) { out.provider = 'dahl'; out.model = DAHL_DEFAULT_MODEL; migrated = true; }
   }
-  if (!out.extToken) out.extToken = TR_DEFAULT_KEY;
-  if (!out.extBase) out.extBase = TR_DEFAULT_BASE;
   /* مهاجرت یک‌باره به دال (شبکهٔ جدید v1.8.0 با کلید آماده) — بقیهٔ تنظیمات حفظ می‌شود */
   if (!out.dahlMigrated) {
     out.dahlMigrated = true;
@@ -384,7 +357,8 @@ function loadSettings() {
   if (!PROVIDERS[out.provider]) out.provider = 'dahl';
   if (!['auto', 'cloudflare', 'pollinations'].includes(out.imageEngine)) out.imageEngine = 'auto';
   if (!['none','realistic','anime','digital','watercolor','pixel','render3d','gameart'].includes(out.imgStyle)) out.imgStyle = 'none';
-  if (!['night', 'ocean', 'light'].includes(out.theme)) out.theme = 'night';
+  /* v1.10.0: هر ۶ تم معتبر — تم‌های جدید بعد از بستن برنامه هم می‌مانند (رفع باگ ماندگاری) */
+  if (!['night', 'ocean', 'emerald', 'sunset', 'light', 'midnight'].includes(out.theme)) out.theme = 'night';
   out.fontScale = Math.min(1.25, Math.max(0.9, Number(out.fontScale) || 1));
   out.anim = out.anim !== false;
   out.gameBigRun = out.gameBigRun !== false;
@@ -393,6 +367,8 @@ function loadSettings() {
   out.speakRate = Math.min(1.5, Math.max(0.6, Number(out.speakRate) || 1));
   out.agentTools = out.agentTools !== false;
   out.ttsFallback = out.ttsFallback !== false;
+  /* v1.10.0: اگر مهاجرتی انجام شد، همین اول کار ذخیره شود تا بعد از بستن برنامه هم بماند */
+  if (migrated) saveSettings(out);
   return out;
 }
 function saveSettings(s) { try { store.setItem(LS_SET, JSON.stringify(s)); } catch (e) {} }
@@ -1029,9 +1005,8 @@ function providerChain() {
 function apiUrl(p) {
   const s = settings;
   const pid = p || curProvider();
-  /* سرویس دال (اصلی) و سرویس خارجی شخصی (TokenRouter) آدرس مخصوص خودشان را دارند */
+  /* سرویس دال (اصلی) آدرس مخصوص خودش را دارد */
   if (pid === 'dahl') return (PROVIDERS.dahl.endpoint)(s);
-  if (pid === 'tokenrouter') return (PROVIDERS.tokenrouter.endpoint)(s);
   /* override دستی همیشه اولویت دارد (برای تست/سرویس دلخواه) */
   if (s.base && s.base.trim()) {
     let b = s.base.trim().replace(/\/+$/, '');
@@ -1050,7 +1025,6 @@ function apiHeaders(p) {
   const h = { 'Content-Type': 'application/json' };
   /* پولینیشن بدون کلید کار می‌کند — هدر احراز فقط وقتی توکن هست */
   const tok = pid === 'dahl' ? (settings.dahlToken || DAHL_DEFAULT_KEY).trim()
-    : pid === 'tokenrouter' ? (settings.extToken || TR_DEFAULT_KEY).trim()
     : (settings.token || '').trim();
   if (tok) h['Authorization'] = 'Bearer ' + tok;
   return h;
@@ -1061,10 +1035,6 @@ function chosenModel(p) {
     const ids = Object.keys(PROVIDERS.dahl.models);
     return ids.indexOf(settings.model) !== -1 ? settings.model : DAHL_DEFAULT_MODEL;
   }
-  if (pid === 'tokenrouter') {
-    const ids = Object.keys(PROVIDERS.tokenrouter.models);
-    return ids.indexOf(settings.model) !== -1 ? settings.model : TR_DEFAULT_MODEL;
-  }
   if (pid === 'pollinations') return 'openai-fast';
   return settings.model === 'custom' ? (settings.modelCustom || '').trim() : settings.model;
 }
@@ -1072,7 +1042,6 @@ function prettyModel(id) {
   if (!id) return '—';
   if (MODEL_NAMES[id]) return MODEL_NAMES[id];
   if (PROVIDERS.dahl.models[id]) return PROVIDERS.dahl.models[id].split('—')[0].trim();
-  if (PROVIDERS.tokenrouter.models[id]) return PROVIDERS.tokenrouter.models[id].split('—')[0].trim();
   if (id === 'openai-fast') return 'مغز رایگان پولینیشن';
   return id.length > 26 ? id.slice(0, 26) + '…' : id;
 }
@@ -2036,16 +2005,22 @@ function renderThemeGrid() {
    (جایگزین منوی زشت و بومی select در اندروید)
    ============================================================ */
 const MODEL_INFO = {
-  'zai-org/GLM-5.3-Flash': { desc: 'مغز اصلی سوکوت — استدلال قوی، پاسخ سریع و فارسی روان؛ بهترین انتخاب برای بیشتر کارها.', tags: ['استدلال', 'سریع', 'بینایی'] },
+  'zai-org/GLM-5.3-Flash': { desc: 'مغز اصلی سوکوت — استدلال قوی، پاسخ سریع و فارسی روان؛ بهترین انتخاب برای بیشتر کارها.', tags: ['استدلال', 'سریع', '۱M توکن'] },
   'MiniMaxAI/MiniMax-M2.7': { desc: 'مغز قدرتمند برای کارهای سنگین و استدلال طولانی؛ وقتی جواب کاملی می‌خواهی امتحانش کن.', tags: ['استدلال', 'قوی'] },
   'deepseek-ai/DeepSeek-V4-Flash-0731': { desc: 'استدلال عمیق و دقیق — عالی برای ریاضی، کدنویسی و مسئله‌های پیچیده.', tags: ['استدلال', 'دقیق'] },
-  'anthropic/claude-opus-5-5-advance-ai': { desc: 'قوی‌ترین مغز TokenRouter — متن‌نویسی، تحلیل و ترجمهٔ حرفه‌ای.', tags: ['قوی'] },
-  'openai/gpt-5.6-luna': { desc: 'نسل جدید OpenAI روی TokenRouter.', tags: [] },
-  'openai/gpt-5.4-nano': { desc: 'سبک و کم‌مصرف روی TokenRouter.', tags: ['سریع'] },
-  'google/gemini-3.5-flash-lite': { desc: 'سرعت گوگل روی TokenRouter.', tags: ['سریع'] },
   'openai-fast': { desc: 'مغز رایگان همیشگی — بدون کلید و بدون ثبت‌نام.', tags: ['رایگان', 'سریع'] }
 };
-const PICK_CUSTOM_OK = ['cloudflare', 'groq', 'gemini', 'zai', 'openrouter', 'custom', 'tokenrouter'];
+const PICK_CUSTOM_OK = ['cloudflare', 'groq', 'gemini', 'zai', 'custom'];
+
+/* v1.10.0: گروه‌بندی مدل‌های کلادفلر برای انتخاب‌گر — هر مدل دقیقاً یک‌بار، بدون تکرار */
+const CF_PICK_GROUPS = [
+  { title: '👑 غول‌های بالای ۳۰۰B — پلن ارتقایافتهٔ کلادفلر', ids: ['@cf/zai-org/glm-5.3', '@cf/zai-org/glm-5.2', '@cf/moonshotai/kimi-k2.6', '@cf/moonshotai/kimi-k2.7-code', '@cf/deepseek-ai/deepseek-v4-pro-0813', '@cf/zai-org/glm-5.3-flash', '@cf/deepseek-ai/deepseek-v4.1-flash-1017'] },
+  { title: '🧠 مغزهای بزرگ عمومی — رایگان', ids: ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/openai/gpt-oss-120b', '@cf/nvidia/nemotron-3-120b-a12b', '@cf/openai/gpt-oss-20b'] },
+  { title: '💻 برنامه‌نویسی و کد', ids: ['@cf/qwen/qwen2.5-coder-32b-instruct', '@cf/qwen/qwen3-30b-a3b-fp8', '@cf/ibm-granite/granite-4.0-h-micro'] },
+  { title: '🔍 استدلال عمیق (کندتر، با تفکر)', ids: ['@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', '@cf/qwen/qwq-32b'] },
+  { title: '👁 بینایی — این‌ها عکس را می‌بینند', ids: ['@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/qwen/qwen3.8-27b'] },
+  { title: '⚡ سبک و سریع', ids: ['@cf/mistralai/mistral-small-3.1-24b-instruct', '@cf/aisingapore/gemma-sea-lion-v4-27b-it', '@cf/zai-org/glm-4.7-flash', '@cf/google/gemma-4-26b-a4b-it', '@cf/utter-project/eurollm-9b-it', '@cf/meta/llama-3.1-8b-instruct-fast', '@cf/meta/llama-3.1-8b-instruct-fp8', '@cf/meta/llama-3.2-3b-instruct', '@cf/mistral/mistral-7b-instruct-v0.1'] }
+];
 
 function openModelPicker(fromSettings) {
   renderModelCards();
@@ -2054,24 +2029,42 @@ function openModelPicker(fromSettings) {
 function closeModelPicker() { $('#model-backdrop').classList.add('hidden'); }
 
 function renderModelCards() {
-  const p = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
+  const p = PROVIDERS[settings.provider] || PROVIDERS.dahl;
   const models = p.models || {};
   const curModel = chosenModel();
   const list = $('#model-list');
   const desc = $('#model-sheet-desc');
-  if (desc) desc.textContent = 'مدل‌های سرویس «' + p.name + '» — با یک لمس عوض کن؛ فوراً اعمال و ذخیره می‌شود.';
-  list.innerHTML = Object.keys(models).map((id) => {
+  const nAll = Object.keys(models).length;
+  const faNum = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  if (desc) desc.textContent = 'مدل‌های سرویس «' + p.name + '» (' + faNum(nAll) + ' مدل) — با یک لمس عوض کن؛ فوراً اعمال و ذخیره می‌شود.';
+  const card = (id) => {
     const info = MODEL_INFO[id] || {};
-    const nm = String(models[id]).split('—')[0].trim();
+    const nm = String(models[id] || id).split('—')[0].trim();
     const tags = (info.tags || []).map((t) => '<i>' + esc(t) + '</i>').join('');
     const rec = id === 'zai-org/GLM-5.3-Flash' ? '<i class="mc-tag">پیشنهادی</i>' : '';
     return '<button type="button" class="model-card' + (id === curModel ? ' active' : '') + '" data-model="' + esc(id) + '">' +
       '<span class="mc-radio"></span>' +
       '<span class="mc-body"><b>' + esc(nm) + rec + '</b>' +
-      '<span class="mc-desc">' + esc(info.desc || models[id]) + '</span>' +
+      '<span class="mc-desc">' + esc(info.desc || models[id] || id) + '</span>' +
       (tags ? '<span class="mc-tags">' + tags + '</span>' : '') +
       '</span></button>';
-  }).join('');
+  };
+  /* v1.10.0: کلادفلر با تیترِ گروه‌بندی — بقیهٔ سرویس‌ها لیست ساده */
+  if (settings.provider === 'cloudflare') {
+    let html = '';
+    for (const g of CF_PICK_GROUPS) {
+      const ids = g.ids.filter((id) => models[id]);
+      if (!ids.length) continue;
+      html += '<div class="mg-title">' + esc(g.title) + '</div>';
+      html += ids.map(card).join('');
+    }
+    /* هر مدلی که در گروه‌ها نیامده (اگر آینده اضافه شد) هم دیده شود */
+    const rest = Object.keys(models).filter((id) => CF_PICK_GROUPS.every((g) => g.ids.indexOf(id) === -1));
+    if (rest.length) html += '<div class="mg-title">سایر مدل‌ها</div>' + rest.map(card).join('');
+    list.innerHTML = html;
+  } else {
+    list.innerHTML = Object.keys(models).map(card).join('');
+  }
   list.querySelectorAll('.model-card').forEach((b) => {
     b.addEventListener('click', () => applyPickedModel(b.dataset.model, false));
   });
@@ -2510,26 +2503,23 @@ function switchTab(id) {
   document.querySelectorAll('#settings-modal .tab-page').forEach((pg) => pg.classList.toggle('hidden', pg.dataset.page !== id));
 }
 function applyProviderUI() {
-  const p = PROVIDERS[modalProvider] || PROVIDERS.cloudflare;
+  const p = PROVIDERS[modalProvider] || PROVIDERS.dahl;
   const isCF = modalProvider === 'cloudflare';
-  const isTR = modalProvider === 'tokenrouter';
   const isDahl = modalProvider === 'dahl';
   const acc = $('#field-account');
   if (acc) acc.classList.toggle('hidden', !isCF);
   const tr = $('#token-req');
-  if (tr) tr.classList.toggle('hidden', p.needsToken === false || isTR || isDahl);
+  if (tr) tr.classList.toggle('hidden', p.needsToken === false || isDahl);
   const box = $('#box-keys');
-  if (box) box.classList.toggle('hidden', p.needsToken === false || isTR || isDahl);
-  const ext = $('#box-ext-api');
-  if (ext) ext.classList.toggle('hidden', !isTR);
+  if (box) box.classList.toggle('hidden', p.needsToken === false || isDahl);
   const dbox = $('#box-dahl-api');
   if (dbox) dbox.classList.toggle('hidden', !isDahl);
   const kt = $('#keys-title');
-  if (kt) kt.textContent = (p.needsToken === false && !isTR && !isDahl) ? 'این سرویس کلید نمی‌خواهد — فقط مدل را انتخاب کن' : 'کلید و حساب سرویس';
+  if (kt) kt.textContent = (p.needsToken === false && !isDahl) ? 'این سرویس کلید نمی‌خواهد — فقط مدل را انتخاب کن' : 'کلید و حساب سرویس';
 }
 function rebuildModelSelect() {
   const sel = $('#set-model');
-  const p = PROVIDERS[modalProvider] || PROVIDERS.cloudflare;
+  const p = PROVIDERS[modalProvider] || PROVIDERS.dahl;
   const models = p.models || {};
   let opts = '';
   if (modalProvider === 'cloudflare') {
@@ -2561,16 +2551,12 @@ function rebuildModelSelect() {
   $('#provider-hint').innerHTML = (p.needsToken === false
     ? (modalProvider === 'dahl'
       ? 'کلید و آدرس دال از قبل تنظیم شده ✓ — فقط مدل را انتخاب کن و بفرست (تست‌شده با درخواست واقعی)'
-      : modalProvider === 'tokenrouter'
-      ? 'کلید شخصی تو از قبل تنظیم شده ✓ — اگر موجودی تمام شود خودکار با سرویس رایگان جواب می‌گیری'
       : 'بدون کلید و بدون ثبت‌نام — همین حالا کار می‌کند')
     : 'دریافت کلید: <span class="en" dir="ltr">' + esc(p.tokenUrl) + '</span>' + (p.needsAccount ? ' + Account ID' : '')) +
     (modalProvider === 'dahl' ? ' — مدل‌های دال: GLM 5.3 Flash · MiniMax M2.7 · DeepSeek V4 Flash' : '') +
-    (modalProvider === 'tokenrouter' ? ' — مدل‌های کلید تو: Claude Opus 5.5 · GPT 5.6 Luna · GPT 5.4 Nano · Gemini 3.5 Flash' : '') +
     (modalProvider === 'pollinations' ? ' — محدودیت رایگان: هر ۴۵ ثانیه یک پیام؛ برای کار سنگین کلادفلر یا Groq را انتخاب کن' : '') +
     (modalProvider === 'groq' ? ' — رایگان حدود ۳۰ درخواست در دقیقه' : '') +
-    (modalProvider === 'zai' ? ' — مدل‌های جدیدتر GLM را می‌توانی دستی بنویسی (مثل glm-5.x)' : '') +
-    (modalProvider === 'openrouter' ? ' — هر مدل دیگر را می‌توانی از openrouter.ai/models دستی بنویسی' : '');
+    (modalProvider === 'zai' ? ' — مدل‌های جدیدتر GLM را می‌توانی دستی بنویسی (مثل glm-5.x)' : '');
   applyProviderUI();
   updateModelTrigger();
 }
@@ -2581,8 +2567,6 @@ function openSettings() {
   switchTab('general');
   $('#set-dahl-base').value = settings.dahlBase || DAHL_DEFAULT_BASE;
   $('#set-dahl-key').value = settings.dahlToken || DAHL_DEFAULT_KEY;
-  $('#set-ext-base').value = settings.extBase || TR_DEFAULT_BASE;
-  $('#set-ext-key').value = settings.extToken || TR_DEFAULT_KEY;
   $('#set-token').value = settings.token;
   $('#set-account').value = settings.account;
   $('#set-base').value = settings.base;
@@ -2618,9 +2602,6 @@ function readSettingsFromModal() {
   return {
     dahlToken: ($('#set-dahl-key').value || '').trim() || DAHL_DEFAULT_KEY,
     dahlBase: ($('#set-dahl-base').value || '').trim() || DAHL_DEFAULT_BASE,
-    extToken: ($('#set-ext-key').value || '').trim() || TR_DEFAULT_KEY,
-    extBase: ($('#set-ext-base').value || '').trim() || TR_DEFAULT_BASE,
-    extModel: TR_DEFAULT_MODEL,
     token: $('#set-token').value.trim(),
     account: $('#set-account').value.trim(),
     base: $('#set-base').value.trim(),
@@ -2663,16 +2644,15 @@ function saveFromModal() {
 }
 
 function refreshStatus() {
-  const p = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
-  const isTR = settings.provider === 'tokenrouter';
+  const p = PROVIDERS[settings.provider] || PROVIDERS.dahl;
   const isDahl = settings.provider === 'dahl';
-  const needTok = (isTR || isDahl) ? false : (p.needsToken !== false);
+  const needTok = isDahl ? false : (p.needsToken !== false);
   const needAcct = p.needsAccount && !(settings.base || '').trim();
-  const ok = (!needTok || (isTR ? !!(settings.extToken || TR_DEFAULT_KEY) : isDahl ? !!(settings.dahlToken || DAHL_DEFAULT_KEY) : settings.token.trim())) && (!needAcct || settings.account.trim());
+  const ok = (!needTok || (isDahl ? !!(settings.dahlToken || DAHL_DEFAULT_KEY) : settings.token.trim())) && (!needAcct || settings.account.trim());
   const dot = $('#status-dot');
   if (dot.className.indexOf('dot-live') === -1) {
     dot.className = 'dot ' + (ok ? 'dot-on' : 'dot-off');
-    $('#status-text').textContent = ok ? (needTok ? 'متصل — ' + p.name : (isTR || isDahl) ? 'آماده — ' + p.name : 'آماده — ' + p.name + ' (بدون کلید)') : 'تنظیمات لازم است';
+    $('#status-text').textContent = ok ? (needTok ? 'متصل — ' + p.name : isDahl ? 'آماده — ' + p.name : 'آماده — ' + p.name + ' (بدون کلید)') : 'تنظیمات لازم است';
   }
   $('#model-badge span').textContent = prettyModel(chosenModel());
   /* v1.9.0: چیپ وضعیت روی صفحهٔ خوش‌آمد هم به‌روز شود */
@@ -2689,10 +2669,9 @@ function refreshStatus() {
 /* — وضعیت زنده: چراغ سبز فقط وقتی که اتصالِ واقعی به مدل جواب داده باشد —
    اگر مدل/موجودی/اتصال سرویس اصلی مشکل داشت، خودکار با سرویس رایگان تست و سبز می‌شود */
 function liveCheck() {
-  const p = PROVIDERS[settings.provider] || PROVIDERS.cloudflare;
-  const isTR = settings.provider === 'tokenrouter';
+  const p = PROVIDERS[settings.provider] || PROVIDERS.dahl;
   const isDahl = settings.provider === 'dahl';
-  const needTok = (isTR || isDahl) ? false : (p.needsToken !== false);
+  const needTok = isDahl ? false : (p.needsToken !== false);
   const needAcct = p.needsAccount && !(settings.base || '').trim();
   if ((needTok && !settings.token.trim()) || (needAcct && !settings.account.trim())) return;
   const chain = providerChain();
@@ -2847,19 +2826,23 @@ function boot() {
   });
   $('#set-provider').addEventListener('change', () => {
     modalProvider = $('#set-provider').value;
-    if (modalProvider !== 'cloudflare' && settings.provider === 'cloudflare' && settings.model.indexOf('@cf/') === 0) {
-      /* مدل کلادفلر روی سرویس دیگر معنا ندارد — اولین مدل پیشنهادی را بگذار */
-      const first = Object.keys((PROVIDERS[modalProvider] || {}).models || {})[0];
-      if (first) settings.model = first;
+    /* v1.10.0: تغییر پلن همین لحظه ذخیره و اعمال می‌شود —
+       انتخاب‌گرِ مدل بلافاصله مدل‌های همان پلن را نشان می‌دهد (رفع باگ «فقط ۳ مدل») */
+    settings.provider = modalProvider;
+    const pmodels = Object.keys((PROVIDERS[modalProvider] || {}).models || {});
+    const modelOk = settings.model === 'custom' || pmodels.indexOf(settings.model) !== -1;
+    if (!pmodels.length) {
+      /* سرویس دلخواه: مدل دستی می‌ماند */
+    } else if (modalProvider === 'cloudflare' && !modelOk) {
+      settings.model = DEFAULT_MODEL;
+    } else if (!modelOk) {
+      settings.model = pmodels[0];
     }
-    if (modalProvider === 'tokenrouter') {
-      settings.model = TR_DEFAULT_MODEL;
-    }
-    if (modalProvider === 'dahl') {
-      const ids = Object.keys(PROVIDERS.dahl.models);
-      if (ids.indexOf(settings.model) === -1) settings.model = DAHL_DEFAULT_MODEL;
-    }
+    saveSettings(settings);
     rebuildModelSelect();
+    refreshStatus();
+    liveCheck();
+    toast('پلن «' + (PROVIDERS[modalProvider] || {}).name + '» فعال شد — مدل‌هایش در انتخاب‌گر آماده است ✓');
   });
   $('#set-temp').addEventListener('input', () => { $('#temp-val').textContent = $('#set-temp').value; });
   $('#set-rate').addEventListener('input', () => { $('#rate-val').textContent = $('#set-rate').value; });

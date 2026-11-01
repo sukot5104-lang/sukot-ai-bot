@@ -123,7 +123,7 @@
           <img class="hero" src="img/hero.jpg" alt="سوکوت">
         </div>
         <div class="welcome-chips">
-          <span class="w-chip w-ver"><svg class="ic ic-sm"><use href="#i-spark"/></svg><span>نسخهٔ ۱٫۹٫۰</span></span>
+          <span class="w-chip w-ver"><svg class="ic ic-sm"><use href="#i-spark"/></svg><span>نسخهٔ ۱٫۱۰٫۰</span></span>
           <span class="w-chip" id="w-status"><i class="dot dot-off"></i><span>در حال اتصال…</span></span>
         </div>
         <h1>سلام! من سوکوت هستم</h1>
@@ -174,7 +174,7 @@
           <button class="suggestion"><svg class="ic ic-sm"><use href="#i-code"/></svg><span>یه صفحهٔ شخصی HTML مدرن با تم تیره برایم بساز</span></button>
           <button class="suggestion"><svg class="ic ic-sm"><use href="#i-cap"/></svg><span>فیزیک دهم — قانون اون را با مثال ساده توضیح بده</span></button>
         </div>
-        <p class="w-foot">ساخته‌شده با <svg class="ic ic-sm w-heart"><use href="#i-heart"/></svg> توسط <b>Sukot</b> · <span class="en" dir="ltr">v1.9.0</span></p>
+        <p class="w-foot">ساخته‌شده با <svg class="ic ic-sm w-heart"><use href="#i-heart"/></svg> توسط <b>Sukot</b> · <span class="en" dir="ltr">v1.10.0</span></p>
       </div>
     </div>
 
@@ -211,7 +211,7 @@
     </div>
     <p class="modal-desc">
       همه‌چیز مرتب و بخش‌بندی‌شده است — بخش موردنظر را انتخاب کن:
-      <span class="en" dir="ltr">Cloudflare · Pollinations · Groq · Gemini · OpenRouter · API دلخواه</span>
+      <span class="en" dir="ltr">Dahl · Cloudflare · Pollinations · Groq · Gemini · API دلخواه</span>
     </p>
 
     <div class="tab-bar" id="set-tabs">
@@ -327,13 +327,11 @@
         <span>ارائه‌دهندهٔ سرویس</span>
         <select id="set-provider">
           <option value="dahl">دال — مغز GLM 5.3 Flash + MiniMax + DeepSeek (کلید آماده سوکوت، تست‌شده ✓)</option>
-          <option value="tokenrouter">TokenRouter — Claude Opus 5.5 + GPT 5.6 (کلید شخصی سوکوت، آماده ✓)</option>
-          <option value="cloudflare">Cloudflare Workers AI — ۲۵+ مدل + غول‌های بالای ۳۰۰B</option>
+          <option value="cloudflare">Cloudflare Workers AI — ۲۷ مدل + غول‌های بالای ۳۰۰B</option>
           <option value="pollinations">پولینیشن — رایگانِ کامل، بدون ثبت‌نام و بدون کلید ✓</option>
           <option value="groq">Groq — رایگان بدون کارت بانکی (سریع‌ترین سرعت)</option>
           <option value="gemini">Google Gemini — کلید رایگان از AI Studio (بدون کارت)</option>
           <option value="zai">Z.ai GLM — مغز غول‌پیکر ۳۵۵B</option>
-          <option value="openrouter">OpenRouter — DeepSeek ۶۷۱B و Kimi K2 ۱T (بعضی رایگان)</option>
           <option value="custom">API خارجی دلخواه — هر سرویس سازگار با OpenAI</option>
         </select>
         <span class="hint" id="provider-hint"></span>
@@ -350,19 +348,6 @@
           <input type="password" id="set-dahl-key" placeholder="dahl_…" autocomplete="off">
         </label>
         <span class="hint">مدل‌های استدلالی دال قبل از جواب فکر می‌کنند («دارم عمیق فکر می‌کنم…») — اگر سهمِ فکر تمام شود، سوکوت خودکار با سهم بزرگ‌تر ادامه می‌دهد. این سرویس فعلاً عکس نمی‌بیند؛ برای عکس کلادفلر را انتخاب کن.</span>
-      </div>
-
-      <div class="sub-box hidden" id="box-ext-api">
-        <div class="sub-title">API خارجی شخصی (TokenRouter)</div>
-        <label class="field">
-          <span>آدرس پایه (Base URL)</span>
-          <input type="text" id="set-ext-base" dir="ltr" placeholder="https://api.tokenrouter.com/v1" autocomplete="off">
-        </label>
-        <label class="field">
-          <span>کلید API (Key)</span>
-          <input type="password" id="set-ext-key" placeholder="sk-…" autocomplete="off">
-        </label>
-        <span class="hint">اگر موجودی این سرویس تمام شود، سوکوت خودکار با سرویس رایگان جواب می‌دهد تا هرگز بدون پاسخ نمانی.</span>
       </div>
 
       <div class="sub-box" id="box-keys">
@@ -455,7 +440,7 @@
     <div class="tab-page hidden" data-page="about">
       <div class="sub-box" style="text-align:center">
         <p style="font-size:17px;font-weight:bold;margin:8px 0 2px">سوکوت AI</p>
-        <p class="en" dir="ltr" style="font-size:11px;color:var(--muted2)">v1.9.0 · Sukot AI Bot</p>
+        <p class="en" dir="ltr" style="font-size:11px;color:var(--muted2)">v1.10.0 · Sukot AI Bot</p>
         <p class="hint" style="line-height:2;margin-top:8px">ساخت عکس با هوش مصنوعی، استودیوی بازی‌سازی با اجرای زنده، ۵ دستیار تخصصی، آپلود فایل و عکس، جستجوی زندهٔ وب، قیمت لحظه‌ای ارز، صدای فارسی، حافظهٔ بلندمدت و سرویس‌های رایگان بدون کارت — روی اندروید، ویندوز و وب.</p>
       </div>
       <div class="modal-actions" style="flex-direction:column;gap:10px">
@@ -588,7 +573,7 @@
       <img class="about-hero" src="img/hero.jpg" alt="سوکوت AI">
     </div>
     <h2 class="about-name">سوکوت AI</h2>
-    <div class="about-ver" dir="ltr">v1.9.0</div>
+    <div class="about-ver" dir="ltr">v1.10.0</div>
     <p class="about-desc">ساخت عکس مثل ChatGPT (رایگان، بدون کلید)، استودیوی بازی‌سازی با اجرای زندهٔ بازی داخل خود اپ، سرویس‌های رایگان بدون کارت (پولینیشن، Groq، Gemini)، آپلود فایل و عکس، غول‌های بالای ۳۰۰B، ابزارهای عامل، جستجوی زندهٔ وب، قیمت لحظه‌ای ارز، ۵ دستیار تخصصی، صدای فارسی و حافظهٔ بلندمدت — روی اندروید، ویندوز و وب.</p>
     <a class="about-tg" href="https://t.me/SUKOT1344" target="_blank" rel="noopener">
       <svg class="ic ic-sm"><use href="#i-telegram"/></svg><span>کانال تلگرام: <b dir="ltr">@SUKOT1344</b></span>
@@ -597,7 +582,7 @@
       <svg class="ic ic-sm"><use href="#i-crown"/></svg>
       <span>طراحی و ساخت: <b>Sukot</b></span>
     </div>
-    <p class="about-tech">قدرت‌گرفته از <span class="en">TokenRouter · Cloudflare · Pollinations</span></p>
+    <p class="about-tech">قدرت‌گرفته از <span class="en">Dahl (Gonka) · Cloudflare · Pollinations</span></p>
   </div>
 </div>
 

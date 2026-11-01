@@ -1,6 +1,6 @@
 {
   "name": "sukot-ai-bot",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "ربات گفتگوی هوشمند فارسی — Sukot AI Bot (Cloudflare Workers AI)",
   "main": "main.js",
   "author": "sukot5104-lang",
